@@ -1,0 +1,23 @@
+$pc-container: 1200px;
+$ipad-container: 640px;
+$phone-container: 375px;
+
+$phone: phone;
+$ipad: ipad;
+
+$breakpoints: (
+  "phone": "only screen and (max-width: 678px)",
+  "ipad": "only screen and (max-width: 1200px)",
+);
+
+@mixin respone-to($breakpoint) {
+  $query: map-get($breakpoints, $breakpoint);
+
+  @if not $query {
+    @error 'No value found for `#{$breakpoint}`. Please make sure it is defined in `$breakpoints` map.';
+  }
+
+  @media #{if(type-of($query) == 'string', unquote($query), inspect($query))} {
+    @content;
+  }
+}

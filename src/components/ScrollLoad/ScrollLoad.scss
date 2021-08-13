@@ -1,0 +1,16 @@
+.mescroll {
+  width: 400px;
+  height: 600px;
+  margin: 0 auto;
+
+  .list {
+    display: flex;
+    flex-wrap: wrap;
+
+    img {
+      flex: 1;
+      min-width: 150px;
+      height: 150px;
+    }
+  }
+}

@@ -1,0 +1,18 @@
+.scrolling-wrapper {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  height: 80%;
+  width: 80%;
+  max-width: 300px;
+  max-height: 500px;
+  border: 1px solid #000;
+  transform: translateY(-50%);
+  overflow: hidden;
+}
+
+.scrolling-scroler {
+  background-color: #70f3b7;
+}
