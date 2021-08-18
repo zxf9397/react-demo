@@ -227,6 +227,7 @@ export default class Tabric {
       width: 1200,
       height: 600,
     });
+    this._canvas.preserveObjectStacking = true;
   }
 
   createImage(url: string) {
@@ -249,82 +250,6 @@ export default class Tabric {
       image.setControlVisible('mtr', false);
       clipImage.setControlVisible('mtr', false);
 
-      function calculateCrop(e: fabric.IEvent) {
-        const transform = e.transform as fabric.Transform;
-        const klass = transform.target;
-        const corner = transform.corner as ControlType;
-        const { width = 0, height = 0, scaleX = 1, scaleY = 1, cropX = 0, cropY = 0 } = klass as fabric.Image;
-        const { tl, tr, br, bl } = klass.aCoords as ACoords;
-        const { tl: TL, tr: TR, br: BR, bl: BL } = image.aCoords as ACoords;
-        const imageWidth = image.getScaledWidth();
-        const imageHeight = image.getScaledHeight();
-
-        let options = {
-          width: width * scaleX,
-          height: height * scaleY,
-          cropX: 0,
-          cropY: 0,
-          scaleX: 1,
-          scaleY: 1,
-          opacity: 1,
-        };
-
-        const pad = { left: 0, top: 0, right: 0, bottom: 0, ...(klass as any).pad } as { left: number; top: number; right: number; bottom: number };
-
-        switch (corner) {
-          case 'ml':
-          case 'tl':
-          case 'bl':
-            const pointTL = getLocalPoint(transform, transform.originX, transform.originY, tl.x, tl.y);
-            pad.left = getLimitedNumber(imageWidth + pointTL.x - pad.right, 0, imageWidth);
-            break;
-          case 'mr':
-          case 'tr':
-          case 'br':
-            const pointBR = getLocalPoint(transform, transform.originX, transform.originY, br.x, br.y);
-            pad.right = getLimitedNumber(imageWidth - pointBR.x, 0, imageWidth);
-        }
-
-        switch (corner) {
-          case 'mt':
-          case 'tl':
-          case 'tr':
-            const pointTL = getLocalPoint(transform, transform.originX, transform.originY, tl.x, tl.y);
-            pad.top = getLimitedNumber(imageHeight + pointTL.y - pad.bottom, 0, imageHeight);
-            break;
-          case 'mb':
-          case 'bl':
-          case 'br':
-            const pointBR = getLocalPoint(transform, transform.originX, transform.originY, br.x, br.y);
-            pad.bottom = getLimitedNumber(imageHeight - pointBR.y, 0, imageHeight);
-            break;
-        }
-
-        (klass as any).pad = pad;
-
-        switch (corner) {
-          case 'ml':
-          case 'bl':
-            options.cropX = getAbsDistance(TL, BL, tl);
-            options.cropY = cropY;
-            break;
-          case 'mt':
-          case 'tr':
-            options.cropX = cropX;
-            options.cropY = getAbsDistance(TL, TR, tl);
-            break;
-          case 'tl':
-            options.cropX = getAbsDistance(TL, BL, tl);
-            options.cropY = getAbsDistance(TL, TR, tl);
-            break;
-          default:
-            options.cropX = cropX;
-            options.cropY = cropY;
-        }
-
-        clipImage.set(options);
-      }
-
       const controls = { ...image.controls };
       clipImage.controls = controls;
       clipImage.controls.mr = new fabric.Control({ ...controls.mr });
@@ -339,6 +264,7 @@ export default class Tabric {
         lockMovementY: true,
         lockSkewingX: true,
         lockSkewingY: true,
+        lockScalingFlip: true,
       });
 
       clipImage.on('scaling', (e: fabric.IEvent) => {
@@ -362,6 +288,41 @@ export default class Tabric {
       const movableY = { min: 0, max: 0 };
       let scaleX = 1;
       let scaleY = 1;
+
+      // image.on('mousedown', () => {
+      //   const { tl: TL } = image.aCoords as ACoords;
+      //   const point = clipImage.toLocalPoint(new fabric.Point(TL.x, TL.y), 'left', 'top');
+      //   console.log(point);
+      // })
+
+      // clipImage.on('mousedown', (e: fabric.IEvent) => {
+      //   const transform = e.transform as fabric.Transform;
+      //   const klass = transform.target;
+      //   const control = klass.controls[transform.corner];
+      //   if (!control) return;
+      //   const { tl: TL } = image.aCoords as ACoords;
+      //   const point = klass.toLocalPoint(new fabric.Point(TL.x, TL.y), 'left', 'top');
+      // });
+
+      function calculateCrop(e: fabric.IEvent) {
+        const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = clipImage as fabric.Image;
+        const { scaleX: imageScaleX = 1, scaleY: imageScaleY = 1 } = image as fabric.Image;
+
+        const { tl: TL } = image.aCoords as ACoords;
+        const point = clipImage.toLocalPoint(new fabric.Point(TL.x, TL.y), 'left', 'top');
+
+        console.log(point);
+
+        clipImage.set({
+          width: (width * scaleX) / imageScaleX,
+          height: (height * scaleY) / imageScaleY,
+          cropX: Math.abs(point.x) * imageScaleX,
+          cropY: Math.abs(point.y) * imageScaleY,
+          scaleX: imageScaleX,
+          scaleY: imageScaleY,
+          opacity: 1,
+        });
+      }
       image.on('mousedown', (e: fabric.IEvent) => {
         const { tl, tr, br, bl } = clipImage.get('aCoords') as ACoords;
         const transform = e.transform as fabric.Transform;
@@ -384,57 +345,59 @@ export default class Tabric {
         movableY.max = TL.y + topDistance;
       });
 
-      image.on('scaling', (e: fabric.IEvent) => {
-        const transform = e.transform as fabric.Transform;
-        const klass = transform.target;
-        const { left = 0, top = 0 } = klass;
+      image.on('scaling', () => {
+        const { left = 0, top = 0 } = image;
 
         if (left < movableX.min) {
-          klass.set({
+          image.set({
             left: movableX.min,
           });
         } else if (left > movableX.max) {
-          klass.set({
+          image.set({
             left: movableX.max,
           });
         }
 
         if (top < movableY.min) {
-          klass.set({
+          image.set({
             top: movableY.min,
           });
         } else if (top > movableY.max) {
-          klass.set({
+          image.set({
             top: movableY.max,
           });
         }
       });
 
-      image.on('moving', (e: fabric.IEvent) => {
-        const transform = e.transform as fabric.Transform;
-        const klass = transform.target;
-        const { left = 0, top = 0 } = klass;
+      image.on('moving', () => {
+        clipImage.set('opacity', 0);
+        const { left = 0, top = 0 } = image;
 
         if (left < movableX.min) {
-          klass.set({
+          image.set({
             left: movableX.min,
           });
         } else if (left > movableX.max) {
-          klass.set({
+          image.set({
             left: movableX.max,
           });
         }
 
         if (top < movableY.min) {
-          klass.set({
+          image.set({
             top: movableY.min,
           });
         } else if (top > movableY.max) {
-          klass.set({
+          image.set({
             top: movableY.max,
           });
         }
       });
+      image.on('moved', () => {
+        clipImage.set('opacity', 1);
+      });
+
+      image.on('modified', calculateCrop);
 
       this._canvas.add(clipImage);
     };
