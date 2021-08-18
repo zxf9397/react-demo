@@ -1,100 +1,92 @@
 import { fabric } from 'fabric';
 
-const icon = {
-  rotate: `data:image/svg+xml;charset=utf-8;base64,PHN2ZyB2aWV3Qm94PScwIDAgMTAyNCAxMDI0JyB2ZXJzaW9uPScxLjEnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgd2lkdGg9JzMyJyBoZWlnaHQ9JzMyJz48cGF0aCBkPSdNOTYyLjQ5MzQ0IDM0NC40NDhjLTQxLjg1Ni0xMTEuNzQ0LTEzMC4zMDQtMjA5LjQ3Mi0yNDEuOTg0LTI1Ni0xMDIuNC01MS4yLTIzMi43NjgtNTEuMi0zNDkuMTItOS4zNDRBNTE2LjI4OCA1MTYuMjg4IDAgMCAwIDE4NS4yMTM0NCAyMDAuMTI4bC05LjI4IDEzLjk1MnYtMTIwLjk2QzE3NS45MzM0NCA2OS43NiAxNjEuOTE3NDQgNTEuMiAxMzQuMDEzNDQgNTEuMmMtMjcuOTA0IDAtNDEuOTIgMTguNTYtNDEuOTIgNDEuOTJ2MjUxLjMyOGMwIDIzLjIzMiAxNC4wMTYgNDEuODU2IDQxLjkyIDQxLjg1NmgyNTEuMzI4YzIzLjI5NiAwIDQxLjkyLTEzLjk1MiA0MS45Mi00MS44NTYgMC0yMy4yOTYtMTMuOTUyLTQxLjkyLTQxLjkyLTQxLjkySDIxNy44NTM0NGw5LjM0NC05LjI4YzQxLjg1Ni02MC41NDQgOTcuNzI4LTEwNy4wNzIgMTY3LjU1Mi0xMzUuMDQgODguNDQ4LTM3LjE4NCAxOTUuNDU2LTMyLjUxMiAyODguNTc2IDkuMzQ0IDg4LjQ0OCA0MS45MiAxNTguMjcyIDExMS43NDQgMTk1LjQ1NiAyMDQuOCAzNy4yNDggOTMuMTIgMzcuMjQ4IDIwMC4xMjgtNC42MDggMjkzLjI0OC00MS45MiA4OC40NDgtMTExLjc0NCAxNTguMjcyLTIwNC44IDE5NS41Mi04OC40NDggMzcuMTg0LTE5NS41MiAzMi41NzYtMjg4LjY0LTkuMzQ0LTg4LjM4NC00MS44NTYtMTU4LjIwOC0xMTEuNjgtMTk1LjQ1Ni0yMDQuOC00LjY3Mi0xMy45NTItMjMuMjk2LTI3LjkwNC0zNy4yNDgtMjcuOTA0LTQuNjcyIDAtOS4yOCAwLTE4LjU2IDQuNjA4YTU2LjA2NCA1Ni4wNjQgMCAwIDAtMjMuMjk2IDIzLjI5NiAzOS43NDQgMzkuNzQ0IDAgMCAwIDAgMzIuNjRjNDEuODU2IDExMS42OCAxMzAuMzA0IDIwOS40MDggMjQxLjk4NCAyNTZhNDU1LjI5NiA0NTUuMjk2IDAgMCAwIDE5MC44NDggNDEuODU2YzU1Ljg3MiAwIDExNi4zNTItOS4zNDQgMTYyLjk0NC0yNy45NjggMTExLjY4LTQxLjg1NiAyMDkuNDA4LTEzMC4zMDQgMjU2LTI0MS45ODQgNDEuODU2LTEyNS42OTYgNDYuNTI4LTI1MS4zOTIgNC42MDgtMzYzLjA3MnonIGZpbGw9JyNmZmZmZmYnPjwvcGF0aD48L3N2Zz4=`,
-  crop: `data:image/svg+xml;charset=utf-8;base64,PHN2ZyB2aWV3Qm94PScwIDAgMTAyNCAxMDI0JyB2ZXJzaW9uPScxLjEnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgd2lkdGg9JzMyJyBoZWlnaHQ9JzMyJz48cGF0aCBkPSdNODUzLjMxMiA3MzkuNTg0VjI1NmMwLTQ3LjEwNC0zOC4yMDgtODUuMzEyLTg1LjMxMi04NS4zMTJIMjg0LjQxNlYwSDE3MC42ODh2MTcwLjY4OEgwdjExMy43MjhoMTcwLjY4OFY3NjhjMCA0Ny4xMDQgMzguMjA4IDg1LjMxMiA4NS4zMTIgODUuMzEyaDQ4My41ODRWMTAyNGgxMTMuNzI4di0xNzAuNjg4SDEwMjR2LTExMy43MjhoLTE3MC42ODh6IG0tNTY4Ljg5NiAwVjI4NC40MTZoNDU1LjE2OHY0NTUuMTY4SDI4NC40MTZ6JyBmaWxsPScjZmZmZmZmJz48L3BhdGg+PC9zdmc+`,
-  scale: `data:image/svg+xml;charset=utf-8;base64,PHN2ZyB2aWV3Qm94PScwIDAgMTAyNCAxMDI0JyB2ZXJzaW9uPScxLjEnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgd2lkdGg9JzMyJyBoZWlnaHQ9JzMyJz48cGF0aCBkPSdNNTE2LjMxNTQyOSA0NjAuNTA3NDI5TDE1Mi41NzYgOTYuNzY4aDMzNy4yNjE3MTRWMTAuNDU5NDI5SDUuMTkzMTQzdjQ3Ni40NTI1NzFoODYuMzA4NTcxdi0zMjkuMTQyODU3bDM2My43Mzk0MjkgMzYzLjgxMjU3MSA2MS4wNzQyODYtNjEuMDc0Mjg1eiBtNDA5LjYgNjYuMTIxMTQydjMyOS4xNDI4NThMNTYyLjE3NiA0OTIuMDMybC02MS4wNzQyODYgNjEuMDAxMTQzIDM2My44MTI1NzIgMzYzLjczOTQyOEg1MjcuNTc5NDI5djg2LjMwODU3MkgxMDEyLjIyNFY1MjYuNjI4NTcxaC04Ni4zMDg1NzF6JyBmaWxsPScjZmZmZmZmJz48L3BhdGg+PC9zdmc+`,
-  delete: `data:image/svg+xml;charset=utf-8;base64,PHN2ZyB2aWV3Qm94PScwIDAgMTAyNCAxMDI0JyB2ZXJzaW9uPScxLjEnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgd2lkdGg9JzMyJyBoZWlnaHQ9JzMyJz48cGF0aCBkPSdNNTE3LjU2OCAyMS42MzJBMTg1LjM0NCAxODUuMzQ0IDAgMCAwIDMzMi40MTYgMjAwLjk2SDk4LjYyNGE0Ny4yOTYgNDcuMjk2IDAgMCAwIDAgOTQuNDY0aDUyLjA5NnY1MjguMzg0YzAgOTkuMiA2Ny4yIDE4MC4yODggMTUwLjQgMTgwLjI4OGg0MjMuNTUyYzgyLjk0NCAwIDE1MC4zMzYtODAuNjQgMTUwLjMzNi0xODAuMjg4VjI5NS43NDRoNDcuMjMyYTQ3LjI5NiA0Ny4yOTYgMCAwIDAgMC05NC40NjRoLTIxOS43NzZBMTg0LjgzMiAxODQuODMyIDAgMCAwIDUxNy41NjggMjEuNjMyek00MjAuOTI4IDIwMC45NmMzLjQ1Ni01MS4yIDQ1LjE4NC05MC44OCA5Ni44MzItOTAuODggNTEuNjQ4IDAgOTMuMzc2IDM5Ljg3MiA5Ni4zMiA5MC44OEg0MjAuOTI4ek0zMDAuOTI4IDkxNS44NGMtMjkuNDQgMC02MS44ODgtMzcuODI0LTYxLjg4OC05Mi4wMzJWMjk1Ljc0NGg1NDcuMzI4djUyOC41NzZjMCA1NC4wMTYtMzIuNDQ4IDkxLjk2OC02MS44ODggOTEuOTY4SDMwMC45Mjh2LTAuNTEyeiBtNjMuNDg4LTExMy42YzIxLjU2OCAwIDM5LjM2LTIxLjU2OCAzOS4zNi00OC42NFY0NzYuMDMyYzAtMjcuMDcyLTE3LjY2NC00OC42NC0zOS4zNi00OC42NC0yMS42MzIgMC0zOS40MjQgMjEuNTY4LTM5LjQyNCA0OC42NHYyNzcuNTY4YzAgMjYuODggMTcuMzQ0IDQ4LjY0IDM5LjQyNCA0OC42NHogbTE0Mi40NjQgMGMyMS41NjggMCAzOS4zNi0yMS41NjggMzkuMzYtNDguNjRWNDc2LjAzMmMwLTI3LjA3Mi0xNy42LTQ4LjY0LTM5LjM2LTQ4LjY0LTIxLjU2OCAwLTM5LjM2IDIxLjU2OC0zOS4zNiA0OC42NHYyNzcuNTY4YzAgMjYuODggMTcuNzkyIDQ4LjY0IDM5LjM2IDQ4LjY0eiBtMTQ5Ljg4OCAwYzIxLjU2OCAwIDM5LjM2LTIxLjU2OCAzOS4zNi00OC42NFY0NzYuMDMyYzAtMjcuMDcyLTE3LjYtNDguNjQtMzkuMzYtNDguNjQtMjEuNTY4IDAtMzkuMzYgMjEuNTY4LTM5LjM2IDQ4LjY0djI3Ny41NjhjMCAyNi44OCAxNy4xNTIgNDguNjQgMzkuMzYgNDguNjR6JyBmaWxsPScjZmZmZmZmJz48L3BhdGg+PC9zdmc+`,
-  refresh: `data:image/svg+xml;charset=utf-8;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/PjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+PHN2ZyB0PSIxNjE2MDMzNzAzNDc5IiBjbGFzcz0iaWNvbiIgdmlld0JveD0iMCAwIDExNzAgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHAtaWQ9Ijk2MjciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjI4LjUxNTYyNSIgaGVpZ2h0PSIyMDAiPjxkZWZzPjxzdHlsZSB0eXBlPSJ0ZXh0L2NzcyI+PC9zdHlsZT48L2RlZnM+PHBhdGggZD0iTTEwNzEuMTAzMjM1IDYxMC4xNTgwMWMtMy40Mzc3MTItNi43MjkxMzgtMjcuMDYyODM4LTI5LjYyMjgzNi0zNC4yMzA4MzMtMzEuODkwMjYzLTcuMjQxMTM4LTIuMzQwNTctMzQuMDg0NTQ3LTMuNTEwODU1LTQwLjgxMzY4NSAwbC0xMTQuODM0MjA0IDcwLjE0Mzk1YTI4LjUyNTY5NCAyOC41MjU2OTQgMCAwIDAgMjUuOTY1Njk2IDUwLjgzNDI0OWw0NC4yNTEzOTctMjAuNjk5NDE0Yy05NS4yMzE5MzIgMTQ0LjQ1NzA0LTIwNi45OTQxMzggMjA3LjcyNTU2Ni0zODguMDk1NzIzIDIwNy43MjU1NjYtMTk5LjUzMzU3MiAwLTM0My45OTA2MTEtOTguNjY5NjQ0LTQwMy45Njc3MTEtMjg4LjYyMTUwOC0yLjkyNTcxMi0xMC4wMjA1NjQtMTIuNDM0Mjc3LTEzLjE2NTcwNS0yMi41Mjc5ODQtMTUuNTA2Mjc0LTEwLjE2Njg1LTIuMzQwNTctNTAuMzIyMjUgNy43NTMxMzctNTcuMzQzOTU5IDE1LjUwNjI3NC02Ljk0ODU2NiA3LjY3OTk5NS03LjgyNjI4IDIyLjE2MjI3LTQuNDYxNzExIDMxLjk2MzQwNmE1MTIuODc3MzQ4IDUxMi44NzczNDggMCAwIDAgMTgyLjg1NzAxMiAyNTYuNTg0OTZBNTA3LjY4NDIwOSA1MDcuNjg0MjA5IDAgMCAwIDU2My4yNzI3NDEgOTg3LjQyODU5OGMxMTEuMDMwNzc4IDAgMjI5LjAxMDEyMi0zNC45NjIyNjEgMzE3LjgwNTQ4Ny0xMDEuMTU2NSA3Mi4xMTg4MDYtNTMuNjEzNjc2IDExOS45NTQyLTEwNC41MjEwNjggMTU1LjcyMTAzMS0xODYuOTUzMDA5bDM0LjIzMDgzMyA1My4wMjg1MzRhMjguNTI1Njk0IDI4LjUyNTY5NCAwIDAgMCA1MC45MDczOTItMjYuMDM4ODM5IDcyMDEuNzEzNzEzIDcyMDEuNzEzNzEzIDAgMCAwLTUwLjkwNzM5Mi0xMTYuMDc3NjMxek01NC4wNTI1MzMgMzc3LjEyNTAzM2MzLjQzNzcxMiA2LjcyOTEzOCAyNy4wNjI4MzggMjkuNjIyODM2IDM0LjIzMDgzMyAzMS45NjM0MDYgNy4yNDExMzggMi4zNDA1NyAzNC4wODQ1NDcgMy40Mzc3MTIgNDAuODEzNjg1IDBsMTE0LjgzNDIwMy03MC4yMTcwOTJhMjguNTI1Njk0IDI4LjUyNTY5NCAwIDAgMC0yNS45NjU2OTUtNTAuODM0MjVsLTQ0LjI1MTM5NyAyMC42OTk0MTRjOTUuMjMxOTMyLTE0NC4zODM4OTcgMjA2Ljk5NDEzOC0yMDcuNjUyNDIzIDM4OC4wOTU3MjItMjA3LjY1MjQyMyAxOTkuNTMzNTcyIDAgMzQzLjk5MDYxMSA5OC41OTY1MDEgNDAzLjk2NzcxMiAyODguNjIxNTA4IDIuOTI1NzEyIDkuOTQ3NDIxIDEyLjQzNDI3NyAxMy4xNjU3MDUgMjIuNTI3OTg0IDE1LjUwNjI3NSAxMC4xNjY4NSAyLjM0MDU3IDUwLjMyMjI1LTcuODI2MjggNTcuMjcwODE2LTE1LjUwNjI3NSA3LjAyMTcwOS03LjY3OTk5NSA3Ljg5OTQyMy0yMi4xNjIyNyA0LjUzNDg1NC0zMS45NjM0MDZhNTEyLjg3NzM0OCA1MTIuODc3MzQ4IDAgMCAwLTE4Mi44NTcwMTItMjU2LjY1ODEwMkE1MDcuNjg0MjA5IDUwNy42ODQyMDkgMCAwIDAgNTYxLjgwOTg4NCAwLjAwMDczMUM0NTAuNzc5MTA3IDAuMDAwNzMxIDMzMi43OTk3NjIgMzQuOTYyOTkyIDI0NC4wMDQzOTcgMTAxLjA4NDA4OGMtNzIuMTE4ODA2IDUzLjYxMzY3Ni0xMTkuOTU0MiAxMDQuNTk0MjExLTE1NS43MjEwMzEgMTg2Ljk1MzAwOUw1NC4xMjU2NzYgMjM1LjA4MTcwNmEyOC41MjU2OTQgMjguNTI1Njk0IDAgMSAwLTUwLjkwNzM5MyAyNi4wMzg4MzljMzEuNTk3NjkyIDcyLjg1MDIzNCA0OC41NjY4MjIgMTExLjU0Mjc3NyA1MC45MDczOTMgMTE2LjAwNDQ4OHoiIHAtaWQ9Ijk2MjgiIGZpbGw9IiNmZmZmZmYiPjwvcGF0aD48L3N2Zz4=`,
-};
-
 const CONTROLS = ['bl', 'br', 'mb', 'ml', 'mr', 'mt', 'tl', 'tr', 'mtr'] as const;
 type ControlType = typeof CONTROLS[number];
-type FabricType = 'Image' | 'Group' | 'ActiveSelection';
-interface ControlProperty {
-  icon?: string;
-  x?: number;
-  y?: number;
-  sizeX?: number;
-  sizeY?: number;
-  offsetX?: number;
-  offsetY?: number;
-  touchSize?: number;
-  cornerSize?: number;
-  actionName?: string;
-  cursorStyle?: string;
-  onClick?: () => void;
-  actionHandler?: () => void;
+
+interface Point {
+  x: number;
+  y: number;
 }
 
-const setCustomControl = (
-  type: FabricType,
-  seat: ControlType,
-  {
-    icon,
-    x,
-    y,
-    sizeX = 24,
-    sizeY = 24,
-    offsetX,
-    offsetY,
-    touchSize = 36,
-    cornerSize = 24,
-    cursorStyle,
-    onClick,
-    actionHandler,
-    actionName,
-  }: ControlProperty
-) => {
-  const img = new Image();
-  if (icon) {
-    img.src = icon;
-  }
-  const control = (fabric[type].prototype as any).controls[seat];
-  if (x) {
-    control.x = x;
-  }
-  if (y) {
-    control.y = y;
-  }
-  if (offsetX) {
-    control.offsetX = offsetX;
-  }
-  if (offsetY) {
-    control.offsetY = offsetY;
-  }
+interface LinearFunction {
+  k: number;
+  b: number;
+  func: (x: number) => number;
+  A: Point;
+  B: Point;
+}
 
-  control.sizeX = sizeX;
-  control.sizeY = sizeY;
-  control.touchSizeX = touchSize;
-  control.touchSizeY = touchSize;
+type ActionHandler = (eventData: MouseEvent, transform: fabric.Transform, x: number, y: number) => boolean;
 
-  control.render = function (this: any, ctx: CanvasRenderingContext2D, left: number, top: number, _styleOverride: any, fabricObject: fabric.Object) {
-    ctx.save();
-    ctx.translate(left, top);
-    ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle || 0));
-    if (cursorStyle) {
-      control.cursorStyleHandler = () => cursorStyle;
-      control.cursorStyle = cursorStyle;
-    }
-    ctx.beginPath();
-    ctx.arc(0, 0, 24, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.drawImage(img, -cornerSize / 2, -cornerSize / 2, cornerSize, cornerSize);
+type WrapWithFireEvent = (eventName: string, actionHandler: ActionHandler) => ActionHandler;
+type WrapWithFixedAnchor = (actionHandler: ActionHandler) => ActionHandler;
 
-    ctx.restore();
+const scaleCursorStyleHandler = (fabric as any).controlsUtils.scaleCursorStyleHandler;
+const scalingX = (fabric as any).controlsUtils.scalingX;
+
+function wrapWithFixedAnchor(actionHandler: ActionHandler) {
+  return function (e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
+    const target = transform.target;
+    const centerPoint = target.getCenterPoint();
+    const constraint = target.translateToOriginPoint(centerPoint, transform.originX, transform.originY);
+    const actionPerformed = actionHandler(e, transform, x, y);
+    target.setPositionByOrigin(constraint, transform.originX, transform.originY);
+    return actionPerformed;
   };
-  if (onClick) {
-    control.actionHandler = () => {};
-    control.mouseUpHandler = onClick;
+}
+
+function wrapWithFireEvent(eventName: string, actionHandler: ActionHandler) {
+  return function (e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
+    var actionPerformed = actionHandler(e, transform, x, y);
+    if (actionPerformed) {
+      fireEvent(eventName, commonEventInfo(e, transform, x, y));
+    }
+    return actionPerformed;
+  };
+}
+
+function fireEvent(eventName: string, options: { e: MouseEvent; transform: fabric.Transform; pointer: { x: number; y: number } }) {
+  const target = options.transform.target;
+  const canvas = target.canvas;
+  const canvasOptions = fabric.util.object.clone(options);
+  canvasOptions.target = target;
+  canvas && canvas.fire('object:' + eventName, canvasOptions);
+  target.fire(eventName, options);
+}
+
+function commonEventInfo(e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
+  return {
+    e,
+    transform,
+    pointer: {
+      x: x,
+      y: y,
+    },
+  };
+}
+
+function getLocalPoint(transform: fabric.Transform, originX: string, originY: string, x: number, y: number) {
+  const target = transform.target;
+  const control = target.controls[transform.corner];
+  const zoom = target.canvas?.getZoom() || 1;
+  const padding = (target.padding || 0) / zoom;
+  const localPoint = target.toLocalPoint(new fabric.Point(x, y), originX, originY);
+  if (localPoint.x >= padding) {
+    localPoint.x -= padding;
   }
-  if (actionHandler) {
-    control.actionHandler = actionHandler;
+  if (localPoint.x <= -padding) {
+    localPoint.x += padding;
   }
-  if (actionName) {
-    control.actionName = actionName;
+  if (localPoint.y >= padding) {
+    localPoint.y -= padding;
   }
-};
+  if (localPoint.y <= padding) {
+    localPoint.y += padding;
+  }
+  localPoint.x -= control.offsetX;
+  localPoint.y -= control.offsetY;
+  return localPoint;
+}
 
 interface EventTransform {
   corner: ControlType;
@@ -104,14 +96,80 @@ interface EventTransform {
   width: number;
 }
 
-interface SizeAndPosition {
-  width?: number;
-  height?: number;
-  left?: number;
-  top?: number;
+type ACoords = Record<'tl' | 'tr' | 'br' | 'bl', fabric.Point>;
+
+function cropX(container: fabric.Object, options: { by?: 'left' | 'right' }) {
+  return function (e: MouseEvent, transform: fabric.Transform, _x: number, _y: number) {
+    const point = getLocalPoint(transform, transform.originX, transform.originY, _x, _y);
+    const klass = transform.target;
+    const scaleWidth = container.getScaledWidth();
+    const { tl, bl, tr } = klass.aCoords as ACoords;
+    const { tl: TL, bl: BL } = container.aCoords as ACoords;
+    const { angle = 0, width = 0 } = klass;
+    let x = options.by === 'left' ? -point.x : point.x;
+
+    (klass as any).pad = { left: 0, top: 0, right: 0, bottom: 0, ...(klass as any).pad };
+
+    let distance = 0;
+    const ang = (angle < 0 ? 360 : 0) + (angle % 360);
+    if (ang === 0) {
+      distance = tl.x - TL.x;
+    } else if (ang === 90) {
+      distance = tl.y - TL.y;
+    } else if (ang === 180) {
+      distance = TL.x - tl.x;
+    } else if (ang === 270) {
+      distance = TL.y - tl.y;
+    } else if (ang < 180) {
+      distance = -pointToLinearDistance({ x: _x, y: _y }, getLinearFunction(TL, BL));
+    } else {
+      distance = pointToLinearDistance(tl, getLinearFunction(TL, BL));
+    }
+
+    if (distance < 0) {
+      if (options.by === 'left') {
+        (klass as any).pad.left = 0;
+      } else {
+        (klass as any).pad.right = 0;
+      }
+      klass.set('width', scaleWidth);
+      return false;
+    } else if (distance > scaleWidth) {
+      klass.set('width', 0);
+      return false;
+    }
+
+    if (options.by === 'left') {
+      (klass as any).pad.left = distance;
+    } else {
+      (klass as any).pad.right = distance;
+    }
+
+    klass.set('width', x);
+    return true;
+  };
 }
 
-type ACoords = Record<'tl' | 'tr' | 'br' | 'bl', fabric.Point>;
+function cropY(container: fabric.Object, options: { by?: 'top' | 'bottom' }) {
+  return function (e: MouseEvent, transform: fabric.Transform, _x: number, _y: number) {
+    const point = getLocalPoint(transform, transform.originX, transform.originY, _x, _y);
+    const klass = transform.target;
+    const scaleHeight = container.getScaledHeight();
+
+    let y = options.by === 'top' ? -point.y : point.y;
+
+    if (y < 2) {
+      klass.set('height', 2);
+      return false;
+    }
+    if (y > scaleHeight) {
+      klass.set('height', scaleHeight);
+      return false;
+    }
+    klass.set('height', y);
+    return true;
+  };
+}
 
 export default class Tabric {
   private _canvas;
@@ -171,192 +229,6 @@ export default class Tabric {
     });
   }
 
-  renderAll() {
-    this._canvas.renderAll();
-  }
-
-  addImage(url: string) {
-    return fabric.Image.fromURL(
-      url,
-      (image) => {
-        image
-          .set('width', (image.width || 0) / 2)
-          .set('height', (image.height || 0) / 2)
-          .set('top', 100)
-          .set('left', 100)
-          .set({});
-
-        const clonedImage: fabric.Image = fabric.util.object.clone(image);
-
-        this._canvas.add(clonedImage);
-        const coverRect = new fabric.Rect({
-          width: image.get('width'),
-          height: image.get('height'),
-          top: image.get('top'),
-          left: image.get('left'),
-          fill: '#ffffff55',
-        });
-        // this._canvas.add(coverRect);
-        // this._canvas.add(image);
-
-        /* 全 */
-        // const rect = new fabric.Rect({
-        //   width: image.get('width'),
-        //   height: image.get('height'),
-        //   top: -(image.get('height') || 0) / 2,
-        //   left: -(image.get('width') || 0) / 2,
-        // });
-        /* 右下 */
-        // const rect = new fabric.Rect({
-        //   width: image.get('width'),
-        //   height: image.get('height'),
-        //   top: 0,
-        //   left: 0,
-        // });
-        /* 右上 */
-        const rect = new fabric.Rect({
-          width: image.get('width'),
-          height: (image.get('height') || 2) / 2,
-          top: -(image.get('height') || 0) / 2,
-          left: 0,
-        });
-        // const rect = new fabric.Rect({
-        //   width: (image.get('width') || 0) + 10,
-        //   height: (image.get('height') || 2) / 2 + 10,
-        //   top: -(image.get('height') || 0) / 2,
-        //   left: 0 - 10,
-        // });
-        // image.set({
-        //   width: (image.get('width') || 0) / 2,
-        //   height: (image.get('height') || 0) / 2,
-        //   top: 100 + (image.get('height') || 0) / 2,
-        //   left: 100 + (image.get('width') || 0) / 2,
-        // });
-        const activeRect = new fabric.Rect({
-          width: (image.get('width') || 0) / 2,
-          height: (image.get('height') || 0) / 2,
-          top: image.get('top') || 0,
-          left: (image.get('left') || 0) + (image.get('width') || 0) / 2,
-          fill: 'transparent',
-        });
-
-        activeRect.on('scaling', (e) => {
-          const { corner } = e.transform as EventTransform;
-          if (corner === 'bl') {
-            rect.set({
-              width: (image.get('width') || 0) + 100,
-              height: (image.get('height') || 2) / 2 + 100,
-              top: -(image.get('height') || 0) / 2,
-              left: 0 - 10,
-            });
-            image.clipPath = rect;
-            this._canvas.renderAll();
-          }
-        });
-        // this._canvas.add(activeRect);
-
-        // image.clipPath = rect;
-        // this._canvas.controlsAboveOverlay = true;
-        // const clipPath = new fabric.Rect({ top: image.get('top'), left: image.get('left'), width: 200, height: 200 });
-        // this._canvas.clipPath = clipPath;
-        // this._canvas.add(image);
-
-        const deskRect = new fabric.Rect({
-          width: this._canvas.getWidth(),
-          height: this._canvas.getHeight(),
-          fill: '#ffffff55',
-          // hasControls: false,
-          // hasBorders: false,
-          // lockMovementX: true,
-          // lockMovementY: true,
-          // hoverCursor: 'default',
-        });
-
-        const clipPath = new fabric.Rect({
-          width: 100,
-          height: 100,
-          fill: 'red',
-        });
-
-        deskRect.clipPath = clipPath;
-
-        this._canvas.add(deskRect);
-
-        this._canvas.renderAll();
-      },
-      { crossOrigin: 'anonymous', objectCaching: false }
-    );
-  }
-
-  newImage(url: string) {
-    const logoImg = new Image();
-    logoImg.onload = () => {
-      const logo = new fabric.Image(logoImg, {
-        width: 400,
-        height: 400,
-        left: 400,
-        top: 0,
-        angle: 45,
-      });
-
-      const clonedImage: fabric.Image = fabric.util.object.clone(logo);
-      const L = clonedImage.get('left') || 0;
-      const W = clonedImage.get('width') || 0;
-
-      let clipPath: fabric.Image = fabric.util.object.clone(logo);
-      clipPath.set({
-        top: -(clipPath.get('height') || 0) / 2,
-        left: -(clipPath.get('width') || 0) / 2,
-      });
-
-      logo.clipPath = clipPath;
-
-      // (logo as any).controls['mr'].actionHandler = (e: MouseEvent, obj: any, x: number, y: number) => {
-      //   const klass = obj.target as fabric.Object;
-      //   const left = klass.get('left') || 0;
-      //   if (x >= L + W) {
-      //     klass.set({
-      //       width: L + W - left,
-      //     });
-      //     return true;
-      //   }
-      //   klass.set({
-      //     width: x - left,
-      //   });
-      //   return true;
-      // };
-
-      // (logo as any).controls['ml'].actionHandler = (e: MouseEvent, obj: any, x: number, y: number) => {
-      //   const klass = obj.target as fabric.Object;
-      //   const width = klass.get('width') || 0;
-      //   const left = klass.get('left') || 0;
-      //   if (x < L) {
-      //     klass.set({
-      //       left: L,
-      //       width: left + width - L,
-      //     });
-      //     return true;
-      //   }
-      //   if (x > L + W) {
-      //     klass.set({
-      //       left: L + W,
-      //       width: 0,
-      //     });
-      //     return true;
-      //   }
-      //   klass.set({
-      //     left: x,
-      //     width: left + width - x,
-      //   });
-      //   return true;
-      // };
-
-      this._canvas.add(clonedImage);
-      this._canvas.add(logo);
-    };
-    logoImg.src = url;
-  }
-
   createImage(url: string) {
     const img = new Image();
     img.src = url;
@@ -365,146 +237,256 @@ export default class Tabric {
         width: 400,
         height: 400,
         left: 400,
-        top: 20,
-        angle: 30,
+        top: 100,
+        opacity: 0.5,
       });
+      image.rotate(0);
 
       this._canvas.add(image);
 
-      let clipOrigin = {
-        left: -(image.get('width') || 0) / 2,
-        top: -(image.get('height') || 0) / 2,
-      };
-
-      let imagePosition = {
-        width: image.get('width') || 0,
-        height: image.get('height') || 0,
-        top: image.get('top') || 0,
-        left: image.get('left') || 0,
-        angle: image.get('angle') || 0,
-        aCoords: image.get('aCoords') as Record<'tl' | 'tr' | 'br' | 'bl', fabric.Point>,
-      };
-
       const clipImage: fabric.Image = fabric.util.object.clone(image);
 
+      image.setControlVisible('mtr', false);
       clipImage.setControlVisible('mtr', false);
 
-      const activeClipRect = new fabric.Rect({
-        width: imagePosition.width,
-        height: imagePosition.height,
-        left: imagePosition.left,
-        top: imagePosition.top,
-        angle: imagePosition.angle,
-        fill: 'transparent',
-      });
+      function calculateCrop(e: fabric.IEvent) {
+        const transform = e.transform as fabric.Transform;
+        const klass = transform.target;
+        const corner = transform.corner as ControlType;
+        const { width = 0, height = 0, scaleX = 1, scaleY = 1, cropX = 0, cropY = 0 } = klass as fabric.Image;
+        const { tl, tr, br, bl } = klass.aCoords as ACoords;
+        const { tl: TL, tr: TR, br: BR, bl: BL } = image.aCoords as ACoords;
+        const imageWidth = image.getScaledWidth();
+        const imageHeight = image.getScaledHeight();
 
-      function calculate(e: fabric.IEvent) {
-        const cornerType = e.transform?.corner as ControlType;
-        const { width = 0, height = 0, scaleX = 1, scaleY = 1, left = 0, top = 0, angle = 0, aCoords } = (e.transform as any).target as fabric.Rect;
-        const { tl, tr, br, bl } = (e.transform as any).target.aCoords as Record<string, fabric.Point>;
-        let options: SizeAndPosition = {};
-
-        // console.log(Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2)), width * scaleX);
-
-        // console.log(Math.sqrt(Math.pow(tl.x, 2) + Math.pow(tl.y, 2)));
-
-        const { tl: tL } = clipImage.get('aCoords') as Record<string, fabric.Point>;
-
-        // console.log(clipImage.get('top'), top)
-
-        switch (cornerType) {
-          case 'mr':
-          case 'mb':
-          case 'br':
-            options = {
-              width: Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2)),
-              height: Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(br.y - tr.y, 2)),
-              top: clipOrigin.top + (top - imagePosition.top),
-              left: clipOrigin.left + (left - imagePosition.left),
-            };
-            break;
-          case 'tr':
-          case 'mt':
-            options = {
-              width: Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2)),
-              height: Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(br.y - tr.y, 2)),
-              top: clipOrigin.top + Math.sqrt(Math.pow(tL.x - tl.x, 2) + Math.pow(tl.y - tL.y, 2)),
-              left: clipOrigin.left,
-            };
-            break;
-          case 'ml':
-            options = {
-              width: Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2)),
-              height: Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(br.y - tr.y, 2)),
-              top: clipOrigin.top,
-              left: clipOrigin.left,
-            };
-            break;
-        }
-        const clipPath = new fabric.Rect(options);
-        clipImage.set('clipPath', clipPath);
-      }
-
-      const mrActionHandler = (clipImage as any).controls['mr'].actionHandler;
-
-      (clipImage as any).controls['mr'].actionHandler = (e: MouseEvent, obj: any, x: number, y: number) => {
-        const klass = obj.target as fabric.Object;
-        const { tl: A1, tr: B1, br: C1, bl: D1 } = klass.get('aCoords') as ACoords;
-        const { tl: A2, tr: B2, br: C2, bl: D2 } = image.get('aCoords') as ACoords;
-        /*
-          L1: ax+by+c=0
-          L2: ax+by+d=0
-          距离=|c-d|/√（a^2+b^2）
-
-          
-          a * B1.x + b * 
-         */
-        return mrActionHandler(e, obj, x, y);
-      };
-
-      (clipImage as any).controls['ml'].actionHandler = (e: MouseEvent, obj: any, x: number, y: number) => {
-        const klass = obj.target as fabric.Object;
-        const width = klass.get('width') || 0;
-        const left = klass.get('left') || 0;
-        if (x < imagePosition.left) {
-          klass.set({
-            left: imagePosition.left,
-            width: left + width - imagePosition.left,
-          });
-          return true;
-        }
-        if (x > imagePosition.left + imagePosition.width) {
-          klass.set({
-            left: imagePosition.left + imagePosition.width,
-            width: 0,
-          });
-          return true;
-        }
-        klass.set({
-          left: x,
-          width: left + width - x,
-        });
-        return true;
-      };
-
-      // activeClipRect.on('scaling', calculate);
-      // activeClipRect.on('scaled', calculate);
-
-      clipImage.on('scaling', (e: fabric.IEvent) => {
-        const { width = 0, height = 0, scaleX = 1, scaleY = 1, left = 0, top = 0, angle = 0, aCoords } = (e.transform as any).target as fabric.Rect;
-        const { tl, tr, br, bl } = (e.transform as any).target.aCoords as Record<string, fabric.Point>;
-        clipImage.set({
+        let options = {
           width: width * scaleX,
           height: height * scaleY,
-          cropX: left - imagePosition.left,
-          cropY: top - imagePosition.top,
+          cropX: 0,
+          cropY: 0,
           scaleX: 1,
           scaleY: 1,
-        });
+          opacity: 1,
+        };
+
+        const pad = { left: 0, top: 0, right: 0, bottom: 0, ...(klass as any).pad } as { left: number; top: number; right: number; bottom: number };
+
+        switch (corner) {
+          case 'ml':
+          case 'tl':
+          case 'bl':
+            const pointTL = getLocalPoint(transform, transform.originX, transform.originY, tl.x, tl.y);
+            pad.left = getLimitedNumber(imageWidth + pointTL.x - pad.right, 0, imageWidth);
+            break;
+          case 'mr':
+          case 'tr':
+          case 'br':
+            const pointBR = getLocalPoint(transform, transform.originX, transform.originY, br.x, br.y);
+            pad.right = getLimitedNumber(imageWidth - pointBR.x, 0, imageWidth);
+        }
+
+        switch (corner) {
+          case 'mt':
+          case 'tl':
+          case 'tr':
+            const pointTL = getLocalPoint(transform, transform.originX, transform.originY, tl.x, tl.y);
+            pad.top = getLimitedNumber(imageHeight + pointTL.y - pad.bottom, 0, imageHeight);
+            break;
+          case 'mb':
+          case 'bl':
+          case 'br':
+            const pointBR = getLocalPoint(transform, transform.originX, transform.originY, br.x, br.y);
+            pad.bottom = getLimitedNumber(imageHeight - pointBR.y, 0, imageHeight);
+            break;
+        }
+
+        (klass as any).pad = pad;
+
+        switch (corner) {
+          case 'ml':
+          case 'bl':
+            options.cropX = getAbsDistance(TL, BL, tl);
+            options.cropY = cropY;
+            break;
+          case 'mt':
+          case 'tr':
+            options.cropX = cropX;
+            options.cropY = getAbsDistance(TL, TR, tl);
+            break;
+          case 'tl':
+            options.cropX = getAbsDistance(TL, BL, tl);
+            options.cropY = getAbsDistance(TL, TR, tl);
+            break;
+          default:
+            options.cropX = cropX;
+            options.cropY = cropY;
+        }
+
+        clipImage.set(options);
+      }
+
+      const controls = { ...image.controls };
+      clipImage.controls = controls;
+      clipImage.controls.mr = new fabric.Control({ ...controls.mr });
+
+      // clipImage.controls.mr.actionHandler = wrapWithFireEvent('croping', wrapWithFixedAnchor(cropX(image, { by: 'right' })));
+      // clipImage.controls.ml.actionHandler = wrapWithFireEvent('croping', wrapWithFixedAnchor(cropX(image, { by: 'left' })));
+      // clipImage.controls.mt.actionHandler = wrapWithFireEvent('croping', wrapWithFixedAnchor(cropY(image, { by: 'top' })));
+      // clipImage.controls.mb.actionHandler = wrapWithFireEvent('croping', wrapWithFixedAnchor(cropY(image, { by: 'bottom' })));
+
+      clipImage.set({
+        lockMovementX: true,
+        lockMovementY: true,
+        lockSkewingX: true,
+        lockSkewingY: true,
+      });
+
+      clipImage.on('scaling', (e: fabric.IEvent) => {
+        clipImage.set('opacity', 0);
+      });
+      clipImage.on('scaled', calculateCrop);
+
+      clipImage.on('mousedown', (e: fabric.IEvent) => {
+        const { tl, tr, br, bl } = (e.transform as any).target.aCoords as Record<string, fabric.Point>;
+        const { tl: TL, tr: TR, br: BR, bl: BL } = image.get('aCoords') as ACoords;
+        const { x = 0, y = 0 } = ((e.transform as any).target as fabric.Image).getCenterPoint();
+        const targetLinear = getLinearFunction(tl, tr);
+        const imageLinear = getLinearFunction(TL, TR);
+      });
+
+      let lastPositon = {
+        left: image.get('left') || 0,
+        top: image.get('left') || 0,
+      };
+      const movableX = { min: 0, max: 0 };
+      const movableY = { min: 0, max: 0 };
+      let scaleX = 1;
+      let scaleY = 1;
+      image.on('mousedown', (e: fabric.IEvent) => {
+        const { tl, tr, br, bl } = clipImage.get('aCoords') as ACoords;
+        const transform = e.transform as fabric.Transform;
+        const klass = transform.target;
+        const { left = 0, top = 0, scaleX = 1, scaleY = 1 } = klass;
+        const { tl: TL, tr: TR, br: BR, bl: BL } = klass.get('aCoords') as ACoords;
+        const leftLinear = getLinearFunction(tl, bl);
+        const topLinear = getLinearFunction(tl, tr);
+        const rightLinear = getLinearFunction(tr, br);
+        const bottomLinear = getLinearFunction(br, bl);
+
+        const leftDistance = pointToLinearDistance(TL, leftLinear);
+        const topDistance = pointToLinearDistance(TL, topLinear);
+        const rightDistance = pointToLinearDistance(TR, rightLinear);
+        const bottomDistance = pointToLinearDistance(BL, bottomLinear);
+
+        movableX.min = TL.x + rightDistance;
+        movableX.max = TL.x + leftDistance;
+        movableY.min = TL.y + bottomDistance;
+        movableY.max = TL.y + topDistance;
+      });
+
+      image.on('scaling', (e: fabric.IEvent) => {
+        const transform = e.transform as fabric.Transform;
+        const klass = transform.target;
+        const { left = 0, top = 0 } = klass;
+
+        if (left < movableX.min) {
+          klass.set({
+            left: movableX.min,
+          });
+        } else if (left > movableX.max) {
+          klass.set({
+            left: movableX.max,
+          });
+        }
+
+        if (top < movableY.min) {
+          klass.set({
+            top: movableY.min,
+          });
+        } else if (top > movableY.max) {
+          klass.set({
+            top: movableY.max,
+          });
+        }
+      });
+
+      image.on('moving', (e: fabric.IEvent) => {
+        const transform = e.transform as fabric.Transform;
+        const klass = transform.target;
+        const { left = 0, top = 0 } = klass;
+
+        if (left < movableX.min) {
+          klass.set({
+            left: movableX.min,
+          });
+        } else if (left > movableX.max) {
+          klass.set({
+            left: movableX.max,
+          });
+        }
+
+        if (top < movableY.min) {
+          klass.set({
+            top: movableY.min,
+          });
+        } else if (top > movableY.max) {
+          klass.set({
+            top: movableY.max,
+          });
+        }
       });
 
       this._canvas.add(clipImage);
-      // this._canvas.add(activeClipRect);
     };
   }
+}
+
+function getHypotenuse(a: Point, b: Point) {
+  return Math.sqrt(Math.pow(Math.abs(a.x - b.x), 2) + Math.pow(Math.abs(a.y - b.y), 2));
+}
+
+function getLinearFunction(A: Point, B: Point): LinearFunction {
+  const k = (A.y - B.y) / (A.x - B.x);
+  const b = A.y - k * A.x;
+  return {
+    k,
+    b,
+    func: function (x: number) {
+      return k * x + b;
+    },
+    A,
+    B,
+  };
+}
+
+function pointToLinearDistance(point: Point, linear: LinearFunction) {
+  // linear 平行于 y 轴
+  if (linear.A.x === linear.B.x) {
+    return linear.A.x - point.x;
+  }
+  // linear 平行于 x 轴
+  if (linear.A.y === linear.B.y) {
+    return linear.A.y - point.y;
+  }
+  return (linear.k * point.x - point.y + linear.b) / Math.sqrt(Math.pow(linear.k, 2) + 1);
+}
+
+function getAbsDistance(a: { x: number; y: number }, b: { x: number; y: number }, p: { x: number; y: number }) {
+  const linear = getLinearFunction(a, b);
+  return Math.abs(linear.k * p.x - p.y + linear.b) / Math.sqrt(Math.pow(linear.k, 2) + 1);
+}
+
+function getDistance(a: { x: number; y: number }, b: { x: number; y: number }, p: { x: number; y: number }) {
+  const linear = getLinearFunction(a, b);
+  return (linear.k * p.x - p.y + linear.b) / Math.sqrt(Math.pow(linear.k, 2) + 1);
+}
+
+function getLimitedNumber(num: number, min: number, max: number) {
+  if (num < min) {
+    return min;
+  }
+  if (num > max) {
+    return max;
+  }
+  return num;
 }
