@@ -254,11 +254,6 @@ export default class Tabric {
       clipImage.controls = controls;
       clipImage.controls.mr = new fabric.Control({ ...controls.mr });
 
-      // clipImage.controls.mr.actionHandler = wrapWithFireEvent('croping', wrapWithFixedAnchor(cropX(image, { by: 'right' })));
-      // clipImage.controls.ml.actionHandler = wrapWithFireEvent('croping', wrapWithFixedAnchor(cropX(image, { by: 'left' })));
-      // clipImage.controls.mt.actionHandler = wrapWithFireEvent('croping', wrapWithFixedAnchor(cropY(image, { by: 'top' })));
-      // clipImage.controls.mb.actionHandler = wrapWithFireEvent('croping', wrapWithFixedAnchor(cropY(image, { by: 'bottom' })));
-
       clipImage.set({
         lockMovementX: true,
         lockMovementY: true,
@@ -267,42 +262,80 @@ export default class Tabric {
         lockScalingFlip: true,
       });
 
-      clipImage.on('scaling', (e: fabric.IEvent) => {
+      let scaleWidth = Infinity;
+      let scaleHeight = Infinity;
+
+      clipImage.on('mousedown', (e: fabric.IEvent) => {
+        const { width = 0, height = 0 } = clipImage;
+        const { tl, tr, br, bl } = clipImage.get('aCoords') as ACoords;
+        const { tl: TL, tr: TR, br: BR, bl: BL } = image.get('aCoords') as ACoords;
+        const leftLinear = getLinearFunction(tl, bl);
+        const topLinear = getLinearFunction(tl, tr);
+        const rightLinear = getLinearFunction(tr, br);
+        const bottomLinear = getLinearFunction(br, bl);
+
+        const leftDistance = Math.abs(pointToLinearDistance(TL, leftLinear));
+        const topDistance = Math.abs(pointToLinearDistance(TL, topLinear));
+        const rightDistance = Math.abs(pointToLinearDistance(TR, rightLinear));
+        const bottomDistance = Math.abs(pointToLinearDistance(BR, bottomLinear));
+
+        switch (e.transform?.corner) {
+          case 'ml':
+            scaleWidth = width + leftDistance;
+            break;
+          case 'mr':
+            scaleWidth = width + rightDistance;
+            break;
+          case 'mt':
+            scaleHeight = height + topDistance;
+            break;
+          case 'mb':
+            scaleHeight = height + bottomDistance;
+            break;
+          case 'tl':
+            scaleWidth = width + leftDistance;
+            scaleHeight = height + topDistance;
+            break;
+          case 'tr':
+            scaleWidth = width - rightDistance;
+            scaleHeight = height + topDistance;
+            break;
+          case 'br':
+            scaleWidth = width - rightDistance;
+            scaleHeight = height - bottomDistance;
+            break;
+          case 'bl':
+            scaleWidth = width + leftDistance;
+            scaleHeight = height - bottomDistance;
+            break;
+        }
+      });
+
+      clipImage.on('scaling', () => {
         clipImage.set('opacity', 0);
+        const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = clipImage;
+        let scaleW = width * scaleX;
+        let scaleH = height * scaleY;
+
+        if (scaleW > scaleWidth) {
+          scaleW = scaleWidth;
+        }
+
+        if (scaleH > scaleHeight) {
+          scaleH = scaleHeight;
+        }
+
+        clipImage.set({
+          width: scaleW,
+          height: scaleH,
+          scaleX: 1,
+          scaleY: 1,
+        });
       });
       clipImage.on('scaled', calculateCrop);
 
-      clipImage.on('mousedown', (e: fabric.IEvent) => {
-        const { tl, tr, br, bl } = (e.transform as any).target.aCoords as Record<string, fabric.Point>;
-        const { tl: TL, tr: TR, br: BR, bl: BL } = image.get('aCoords') as ACoords;
-        const { x = 0, y = 0 } = ((e.transform as any).target as fabric.Image).getCenterPoint();
-        const targetLinear = getLinearFunction(tl, tr);
-        const imageLinear = getLinearFunction(TL, TR);
-      });
-
-      let lastPositon = {
-        left: image.get('left') || 0,
-        top: image.get('left') || 0,
-      };
       const movableX = { min: 0, max: 0 };
       const movableY = { min: 0, max: 0 };
-      let scaleX = 1;
-      let scaleY = 1;
-
-      // image.on('mousedown', () => {
-      //   const { tl: TL } = image.aCoords as ACoords;
-      //   const point = clipImage.toLocalPoint(new fabric.Point(TL.x, TL.y), 'left', 'top');
-      //   console.log(point);
-      // })
-
-      // clipImage.on('mousedown', (e: fabric.IEvent) => {
-      //   const transform = e.transform as fabric.Transform;
-      //   const klass = transform.target;
-      //   const control = klass.controls[transform.corner];
-      //   if (!control) return;
-      //   const { tl: TL } = image.aCoords as ACoords;
-      //   const point = klass.toLocalPoint(new fabric.Point(TL.x, TL.y), 'left', 'top');
-      // });
 
       function calculateCrop(e: fabric.IEvent) {
         const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = clipImage as fabric.Image;
@@ -310,8 +343,6 @@ export default class Tabric {
 
         const { tl: TL } = image.aCoords as ACoords;
         const point = clipImage.toLocalPoint(new fabric.Point(TL.x, TL.y), 'left', 'top');
-
-        console.log(point);
 
         clipImage.set({
           width: (width * scaleX) / imageScaleX,
@@ -323,12 +354,10 @@ export default class Tabric {
           opacity: 1,
         });
       }
-      image.on('mousedown', (e: fabric.IEvent) => {
+
+      image.on('mousedown', () => {
         const { tl, tr, br, bl } = clipImage.get('aCoords') as ACoords;
-        const transform = e.transform as fabric.Transform;
-        const klass = transform.target;
-        const { left = 0, top = 0, scaleX = 1, scaleY = 1 } = klass;
-        const { tl: TL, tr: TR, br: BR, bl: BL } = klass.get('aCoords') as ACoords;
+        const { tl: TL, tr: TR, br: BR, bl: BL } = image.get('aCoords') as ACoords;
         const leftLinear = getLinearFunction(tl, bl);
         const topLinear = getLinearFunction(tl, tr);
         const rightLinear = getLinearFunction(tr, br);
