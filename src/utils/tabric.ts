@@ -338,7 +338,6 @@ export default class Tabric {
         // scaling
         if (e.transform?.corner) {
           const { width = 0, height = 0 } = image;
-
           switch (e.transform?.corner) {
             case 'ml':
               minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
@@ -354,14 +353,14 @@ export default class Tabric {
               break;
             case 'tl':
               minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
-              minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
+              minScaleY = Math.abs(pointToLinearDistance(tl, bottomLINEAR)) / height;
               break;
             case 'tr':
-              minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
-              minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
+              minScaleX = Math.abs(pointToLinearDistance(tr, leftLINEAR)) / width;
+              minScaleY = Math.abs(pointToLinearDistance(tl, bottomLINEAR)) / height;
               break;
             case 'br':
-              minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
+              minScaleX = Math.abs(pointToLinearDistance(tr, leftLINEAR)) / width;
               minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
               break;
             case 'bl':
@@ -372,12 +371,11 @@ export default class Tabric {
           return;
         }
         // moving
-
-        movableX.min = TL.x - rightDistance;
-        movableX.max = TL.x + leftDistance;
-        movableY.min = TL.y - bottomDistance;
-        movableY.max = TL.y + topDistance;
+        // TODO
       });
+
+      let lastScaleX = 1;
+      let lastScaleY = 1;
 
       image.on('scaling', () => {
         let scaleX = image.scaleX || 1;
@@ -385,16 +383,23 @@ export default class Tabric {
 
         if (scaleX < minScaleX) {
           scaleX = minScaleX;
+          scaleY = lastScaleY;
+        } else {
+          lastScaleY = scaleY;
         }
+
         if (scaleY < minScaleY) {
           scaleY = minScaleY;
+          scaleX = lastScaleX;
+        } else {
+          lastScaleX = scaleX;
         }
 
         image.set({ scaleX, scaleY });
       });
 
       image.on('moving', () => {
-        //
+        // TODO
       });
       image.on('moved', () => {
         clipImage.set('opacity', 1);
