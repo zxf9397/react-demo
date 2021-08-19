@@ -227,6 +227,7 @@ export default class Tabric {
 
       clipImage.on('mousedown', (e: fabric.IEvent) => {
         const { width = 0, height = 0 } = clipImage;
+        const { scaleX: imageScaleX = 1, scaleY: imageScaleY = 1 } = image;
         const { tl, tr, br, bl } = clipImage.get('aCoords') as ACoords;
         const { tl: TL, tr: TR, br: BR, bl: BL } = image.get('aCoords') as ACoords;
         const leftLinear = getLinearFunction(tl, bl);
@@ -241,32 +242,32 @@ export default class Tabric {
 
         switch (e.transform?.corner) {
           case 'ml':
-            scaleWidth = width + leftDistance;
+            scaleWidth = width * imageScaleX + leftDistance;
             break;
           case 'mr':
-            scaleWidth = width + rightDistance;
+            scaleWidth = width * imageScaleX + rightDistance;
             break;
           case 'mt':
-            scaleHeight = height + topDistance;
+            scaleHeight = height * imageScaleY + topDistance;
             break;
           case 'mb':
-            scaleHeight = height + bottomDistance;
+            scaleHeight = height * imageScaleY + bottomDistance;
             break;
           case 'tl':
-            scaleWidth = width + leftDistance;
-            scaleHeight = height + topDistance;
+            scaleWidth = width * imageScaleX + leftDistance;
+            scaleHeight = height * imageScaleY + topDistance;
             break;
           case 'tr':
-            scaleWidth = width + rightDistance;
-            scaleHeight = height + topDistance;
+            scaleWidth = width * imageScaleX + rightDistance;
+            scaleHeight = height * imageScaleY + topDistance;
             break;
           case 'br':
-            scaleWidth = width + rightDistance;
-            scaleHeight = height + bottomDistance;
+            scaleWidth = width * imageScaleX + rightDistance;
+            scaleHeight = height * imageScaleY + bottomDistance;
             break;
           case 'bl':
-            scaleWidth = width + leftDistance;
-            scaleHeight = height + bottomDistance;
+            scaleWidth = width * imageScaleX + leftDistance;
+            scaleHeight = height * imageScaleY + bottomDistance;
             break;
         }
       });
@@ -293,9 +294,6 @@ export default class Tabric {
       });
       clipImage.on('scaled', calculateCrop);
 
-      const movableX = { min: 0, max: 0 };
-      const movableY = { min: 0, max: 0 };
-
       let minScaleX = 0;
       let minScaleY = 0;
 
@@ -316,6 +314,13 @@ export default class Tabric {
           opacity: 1,
         });
       }
+
+      let linear: {
+        left: LinearFunction;
+        top: LinearFunction;
+        right: LinearFunction;
+        bottom: LinearFunction;
+      } = {} as any;
 
       image.on('mousedown', (e: fabric.IEvent) => {
         const { tl, tr, br, bl } = clipImage.get('aCoords') as ACoords;
@@ -371,7 +376,6 @@ export default class Tabric {
           return;
         }
         // moving
-        // TODO
       });
 
       let lastScaleX = 1;
