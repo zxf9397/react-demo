@@ -3,9 +3,13 @@ import { fabric } from 'fabric';
 const CONTROLS = ['bl', 'br', 'mb', 'ml', 'mr', 'mt', 'tl', 'tr', 'mtr'] as const;
 type ControlType = typeof CONTROLS[number];
 
-interface Point {
-  x: number;
-  y: number;
+interface Point extends Pick<fabric.Point, 'x' | 'y'> {}
+
+interface LinearFunctionDefault {
+  k: number;
+  b: number;
+  func: (x: number) => number;
+  reverseFunc: (y: number) => number;
 }
 
 interface LinearFunction {
@@ -174,7 +178,8 @@ function cropY(container: fabric.Object, options: { by?: 'top' | 'bottom' }) {
 
 export default class Tabric {
   private _canvas;
-
+  lastTop = 0;
+  lastLeft = 0;
   constructor(el: string) {
     this._canvas = new fabric.Canvas(el, {
       width: 1200,
@@ -376,6 +381,99 @@ export default class Tabric {
           return;
         }
         // moving
+
+        const vLinear = (() => {
+          const k = leftLINEAR.k;
+          const b = leftLINEAR.b - (rightLINEAR.b - rightLinear.b);
+          let func: (x: number) => number;
+          let reverseFunc: (y: number) => number;
+          if (!Number.isFinite(k)) {
+            func = function (x) {
+              return Infinity;
+            };
+            reverseFunc = function (y) {
+              return TL.x - (BR.x - br.x);
+            };
+          } else if (k === 0) {
+            func = function (x) {
+              return TL.y - (BR.y - br.y);
+            };
+            reverseFunc = function (y) {
+              return Infinity;
+            };
+          } else {
+            func = function (x: number) {
+              return k * x + b;
+            };
+            reverseFunc = function (y: number) {
+              return (y + b) / k;
+            };
+          }
+          return { k, b, func, reverseFunc };
+        })();
+
+        const hLinear = (() => {
+          const k = topLINEAR.k;
+          const b = topLINEAR.b - (bottomLINEAR.b - bottomLinear.b);
+          let func: (x: number) => number;
+          let reverseFunc: (y: number) => number;
+          if (!Number.isFinite(k)) {
+            func = function (x) {
+              return Infinity;
+            };
+            reverseFunc = function (y) {
+              return TL.x - (BR.x - br.x);
+            };
+          } else if (k === 0) {
+            func = function (x) {
+              return TL.y - (BR.y - br.y);
+            };
+            reverseFunc = function (y) {
+              return Infinity;
+            };
+          } else {
+            func = function (x: number) {
+              return k * x + b;
+            };
+            reverseFunc = function (y: number) {
+              return (y + b) / k;
+            };
+          }
+          return { k, b, func, reverseFunc };
+        })();
+
+        let pointA = { x: 0, y: 0 };
+        let pointB = { x: 0, y: 0 };
+        const pointC = { x: TL.x - (BR.x - br.x), y: TL.y - (BR.y - br.y) };
+        const pointD = { x: tl.x, y: tl.y };
+        if (!Number.isFinite(vLinear.k) || !Number.isFinite(hLinear.k)) {
+          pointA = { x: TL.x - (BR.x - br.x), y: tl.y };
+          pointB = { x: tl.x, y: TL.y - (BR.y - br.y) };
+        } else {
+          // x = (b2 - b1) / (k1 - k2)
+          const aX = (hLinear.b - leftLinear.b) / (leftLinear.k - hLinear.k);
+          const bX = (vLinear.b - topLinear.b) / (topLinear.k - vLinear.k);
+          pointA = { x: aX, y: leftLinear.func(aX) };
+          pointB = { x: bX, y: topLinear.func(bX) };
+        }
+
+        const points = [pointA, pointB, pointC, pointD].sort((a, b) => {
+          if (a.x === b.x) {
+            return a.y - b.y;
+          }
+          return a.x - b.x;
+        });
+
+        const moveTL = points[0].y < points[1].y ? points[0] : points[1];
+        const moveTR = points[2].y < points[3].y ? points[2] : points[3];
+        const moveBL = points[0].y > points[1].y ? points[0] : points[1];
+        const moveBR = points[2].y > points[3].y ? points[2] : points[3];
+        linear = {
+          left: getLinearFunction(moveBL, moveTL),
+          top: getLinearFunction(moveTL, moveTR),
+          right: getLinearFunction(moveTR, moveBR),
+          bottom: getLinearFunction(moveBR, moveBL),
+        };
       });
 
       let lastScaleX = 1;
@@ -403,7 +501,33 @@ export default class Tabric {
       });
 
       image.on('moving', () => {
-        // TODO
+        const { left = 0, top = 0 } = image;
+        const { tl: TL } = image.aCoords as ACoords;
+
+        let l = left;
+        let t = top;
+
+        const minL = linear.left.reverseFunc(TL.y);
+        const maxL = linear.right.reverseFunc(TL.y);
+        const minT = linear.top.func(TL.x);
+        const maxT = linear.bottom.func(TL.x);
+
+        if (left < minL) {
+          l = minL;
+        } else if (left > maxL) {
+          l = maxL;
+        }
+
+        if (top < minT) {
+          t = minT;
+        } else if (top > maxT) {
+          t = maxT;
+        }
+
+        image.set({
+          left: l,
+          top: t,
+        });
       });
       image.on('moved', () => {
         clipImage.set('opacity', 1);
@@ -412,8 +536,25 @@ export default class Tabric {
       image.on('modified', calculateCrop);
 
       this._canvas.add(clipImage);
+      (window as any).image = image;
+      (window as any).clip = clipImage;
+      (window as any).canvas = this._canvas;
     };
   }
+}
+
+type Line = [Point, Point];
+
+function getParallelLineDistance(lineA: Line, lineB: Line) {
+  const a1 = lineA[0].y - lineA[1].y;
+  const b1 = lineA[1].x - lineA[0].x;
+  const c1 = lineA[0].x * lineA[1].y - lineA[1].x * lineA[0].y;
+  const a2 = lineB[0].y - lineB[1].y;
+  const b2 = lineB[1].x - lineB[0].x;
+  const ratio = a1 ? a1 / a2 : b1 / b2;
+  const c2 = (lineB[0].x * lineB[1].y - lineB[1].x * lineB[0].y) * ratio;
+  // console.log(a1, a2, b1, b2, c1, c2);
+  return (c1 - c2) / Math.sqrt(a1 ** 2 + b1 ** 2);
 }
 
 function getHypotenuse(a: Point, b: Point) {
