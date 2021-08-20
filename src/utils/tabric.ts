@@ -42,7 +42,7 @@ function wrapWithFixedAnchor(actionHandler: ActionHandler) {
 
 function wrapWithFireEvent(eventName: string, actionHandler: ActionHandler) {
   return function (e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
-    var actionPerformed = actionHandler(e, transform, x, y);
+    let actionPerformed = actionHandler(e, transform, x, y);
     if (actionPerformed) {
       fireEvent(eventName, commonEventInfo(e, transform, x, y));
     }
@@ -194,7 +194,7 @@ export default class Tabric {
     img.src = url;
     img.onload = () => {
       const image = new fabric.Image(img, {
-        width: 400,
+        width: 600,
         height: 400,
         left: 400,
         top: 100,
@@ -213,7 +213,7 @@ export default class Tabric {
       image.setControlVisible('mt', false);
       image.setControlVisible('mr', false);
       image.setControlVisible('mb', false);
-      clipImage.setControlVisible('mtr', false);
+      // clipImage.setControlVisible('mtr', false);
 
       const controls = { ...image.controls };
       clipImage.controls = controls;
@@ -299,6 +299,41 @@ export default class Tabric {
       });
       clipImage.on('scaled', calculateCrop);
 
+      image.on('selected', console.log);
+
+      let previousAngle: number = 0;
+
+      function rotate() {
+        let childCenterPoint = image.getCenterPoint();
+        let rotationPoint = new fabric.Point(childCenterPoint.x, childCenterPoint.y);
+        let originRotationPoint = new fabric.Point(clipImage.get('left') || 0, clipImage.get('top') || 0);
+        if (!previousAngle) {
+          previousAngle = clipImage.get('angle') || 0;
+        }
+        let angle = fabric.util.degreesToRadians((clipImage.get('angle') || 0) - previousAngle);
+        previousAngle = clipImage.get('angle') || 0;
+
+        let newCoords = fabric.util.rotatePoint(rotationPoint, originRotationPoint, angle);
+
+        image.set({ left: newCoords.x, top: newCoords.y, angle: clipImage.get('angle') }).setCoords();
+      }
+
+      const point = (image.aCoords as ACoords).tl; // getRotatedPoint(image.getCenterPoint(), (image.aCoords as ACoords).tl, 0);
+
+      const startAngle = image.get('angle') || 0;
+      clipImage.on('rotating', () => {
+        const { tl: TL } = image.aCoords as ACoords;
+        const { angle = 0 } = clipImage;
+        const centerPoint = clipImage.getCenterPoint();
+        const P = getRotatedPoint(centerPoint, point, angle - startAngle);
+
+        image.set({
+          left: P.x,
+          top: P.y,
+          angle,
+        });
+      });
+
       let minScaleX = 0;
       let minScaleY = 0;
 
@@ -339,11 +374,6 @@ export default class Tabric {
         const topLINEAR = getLinearFunction(TL, TR);
         const rightLINEAR = getLinearFunction(TR, BR);
         const bottomLINEAR = getLinearFunction(BR, BL);
-
-        const leftDistance = pointToLinearDistance(TL, leftLinear);
-        const topDistance = pointToLinearDistance(TL, topLinear);
-        const rightDistance = pointToLinearDistance(TR, rightLinear);
-        const bottomDistance = pointToLinearDistance(BL, bottomLinear);
 
         // scaling
         if (e.transform?.corner) {
@@ -500,7 +530,8 @@ export default class Tabric {
         image.set({ scaleX, scaleY });
       });
 
-      image.on('moving', () => {
+      image.on('moving', (e) => {
+        console.log(e);
         const { left = 0, top = 0 } = image;
         const { tl: TL } = image.aCoords as ACoords;
 
@@ -632,4 +663,11 @@ function getLimitedNumber(num: number, min: number, max: number) {
     return max;
   }
   return num;
+}
+
+function getRotatedPoint(origin: Point, point: Point, angle: number) {
+  return {
+    x: (point.x - origin.x) * Math.cos((angle * Math.PI) / 180) - (point.y - origin.y) * Math.sin((angle * Math.PI) / 180) + origin.x,
+    y: (point.x - origin.x) * Math.sin((angle * Math.PI) / 180) + (point.y - origin.y) * Math.cos((angle * Math.PI) / 180) + origin.y,
+  };
 }
