@@ -196,7 +196,7 @@ export default class Tabric {
         left: 400,
         top: 100,
       });
-      image.rotate(0);
+      image.rotate(30);
       this._canvas.add(image);
     });
   }
@@ -258,6 +258,7 @@ export default class Tabric {
         lockSkewingY: true,
         lockScalingFlip: true,
       });
+    (this.cropTarget as any).cropping = true;
     let scaleWidth = Infinity;
     let scaleHeight = Infinity;
 
@@ -557,6 +558,7 @@ export default class Tabric {
       return;
     }
     (this.cropTarget as any).cropStatic = this.cropStaticBackups;
+    (this.cropTarget as any).cropping = false;
     this.cropTarget.setControlVisible('mtr', true).set({
       lockMovementX: false,
       lockMovementY: false,
@@ -578,6 +580,7 @@ export default class Tabric {
     }
 
     (this.cropTarget as any).cropStatic = this.cropStatic;
+    (this.cropTarget as any).cropping = false;
     this._canvas.setActiveObject(this.cropTarget);
     this._canvas.remove(this.cropStatic);
     this.cropTarget.setControlVisible('mtr', true).set({
@@ -595,6 +598,8 @@ export default class Tabric {
       let startAngle = 0;
       let startScaleX = 1;
       let startScaleY = 1;
+      let startWidth = 0;
+      let startCenter: fabric.Point;
 
       this.cropTarget.on('mousedown', function (this: fabric.Image, e: fabric.IEvent) {
         const cropStatic = (this as any).cropStatic as fabric.Image;
@@ -603,6 +608,8 @@ export default class Tabric {
         startAngle = this.angle || 0;
         startScaleX = cropStatic.scaleX || 1;
         startScaleY = cropStatic.scaleY || 1;
+        startWidth = this.width || 0;
+        startCenter = this.getCenterPoint();
       });
       this.cropTarget.on('moved', function (this: fabric.Image) {
         const cropStatic = (this as any).cropStatic as fabric.Image;
@@ -624,15 +631,28 @@ export default class Tabric {
         });
       });
       this.cropTarget.on('scaled', function (this: fabric.Image) {
+        if ((this as any).cropping) {
+          return;
+        }
+        const { tl } = this.aCoords as ACoords;
         const cropStatic = (this as any).cropStatic as fabric.Image;
-        const { left = 0, top = 0 } = this;
-        const scaleX = (cropStatic.scaleX || 1) + (this.scaleX || 1) - startScaleX;
-        const scaleY = (cropStatic.scaleY || 1) + (this.scaleY || 1) - startScaleY;
+        const { left = 0, top = 0, scaleX = 1, scaleY = 1, cropX = 0, cropY = 0, angle = 0 } = this;
+
+        cropStatic
+          .set({
+            scaleX,
+            scaleY,
+          })
+          .setCoords();
+        const x1 = tl.x - Math.cos((angle * Math.PI) / 180) * cropX;
+        const y1 = tl.y - Math.sin((angle * Math.PI) / 180) * cropX;
+        const x2 = tl.x + Math.sin((angle * Math.PI) / 180) * cropY;
+        const y2 = tl.y - Math.cos((angle * Math.PI) / 180) * cropY;
+        const x3 = x1 + (x2 - tl.x);
+        const y3 = y1 + (tl.y - y2);
         cropStatic.set({
-          left: (cropStatic.left || 0) + (left - startLeft),
-          top: (cropStatic.top || 0) + (top - startTop),
-          scaleX,
-          scaleY,
+          left: left - (tl.x - x3) * 1,
+          top: top - (tl.y - y3) * 1,
         });
       });
     }
