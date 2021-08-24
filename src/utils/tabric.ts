@@ -196,7 +196,7 @@ export default class Tabric {
         left: 400,
         top: 100,
       });
-      image.rotate(45);
+      image.rotate(0);
       this._canvas.add(image);
     });
   }
@@ -220,13 +220,13 @@ export default class Tabric {
     this.cropIndex = this._canvas.getObjects().findIndex((klass) => klass === activeObj);
 
     // 移动对象
-    this.cropStatic = ((activeObj as any)?.cropStatic as fabric.Image) || (fabric.util.object.clone(activeObj) as fabric.Image);
+    this.cropStatic = fabric.util.object.clone(((activeObj as any).cropStatic as fabric.Image) || activeObj) as fabric.Image;
     // 备份对象
     this.cropBackups = fabric.Image = fabric.util.object.clone(activeObj);
     // 裁剪对象
     this.cropTarget = activeObj as fabric.Image;
-    //
-    this.cropStaticBackups = fabric.util.object.clone(this.cropStatic);
+    // 移动对象备份
+    this.cropStaticBackups = (activeObj as any).cropStatic;
 
     this.cropStatic
       .setControlsVisibility({
@@ -237,6 +237,9 @@ export default class Tabric {
         mb: false,
       })
       .set({
+        lockSkewingX: true,
+        lockSkewingY: true,
+        lockScalingFlip: true,
         opacity: 0.6,
       });
 
@@ -424,66 +427,8 @@ export default class Tabric {
       }
       // moving
 
-      const vLinear = (() => {
-        const k = leftLINEAR.k;
-        const b = leftLINEAR.b - (rightLINEAR.b - rightLinear.b);
-        let func: (x: number) => number;
-        let reverseFunc: (y: number) => number;
-        if (!Number.isFinite(k)) {
-          func = function (x) {
-            return Infinity;
-          };
-          reverseFunc = function (y) {
-            return TL.x - (BR.x - br.x);
-          };
-        } else if (k === 0) {
-          func = function (x) {
-            return TL.y - (BR.y - br.y);
-          };
-          reverseFunc = function (y) {
-            return Infinity;
-          };
-        } else {
-          func = function (x) {
-            return k * x + b;
-          };
-          reverseFunc = function (y) {
-            return (y - b) / k;
-          };
-        }
-        return { k, b, func, reverseFunc };
-      })();
-
-      const hLinear = (() => {
-        const k = topLINEAR.k;
-        const b = topLINEAR.b - (bottomLINEAR.b - bottomLinear.b);
-        let func: (x: number) => number;
-        let reverseFunc: (y: number) => number;
-        if (!Number.isFinite(k)) {
-          func = function (x) {
-            return Infinity;
-          };
-          reverseFunc = function (y) {
-            return TL.x - (BR.x - br.x);
-          };
-        } else if (k === 0) {
-          func = function (x) {
-            return TL.y - (BR.y - br.y);
-          };
-          reverseFunc = function (y) {
-            return Infinity;
-          };
-        } else {
-          func = function (x) {
-            return k * x + b;
-          };
-          reverseFunc = function (y) {
-            return (y - b) / k;
-          };
-        }
-        return { k, b, func, reverseFunc };
-      })();
-
+      const vLinear = linearFunctionMove(leftLINEAR, Number.isFinite(leftLINEAR.k) ? rightLinear.b - rightLINEAR.b : br.x - BR.x);
+      const hLinear = linearFunctionMove(topLINEAR, Number.isFinite(topLINEAR.k) ? bottomLinear.b - bottomLINEAR.b : br.x - BR.x);
       const cAngle = (angle % 360) + (angle < 0 ? 360 : 0);
       if (cAngle < 90) {
         linear = {
@@ -515,10 +460,10 @@ export default class Tabric {
         };
       }
       coords = {
-        tl: linearsIntersection(linear.left, linear.top),
-        tr: linearsIntersection(linear.right, linear.top),
-        br: linearsIntersection(linear.right, linear.bottom),
-        bl: linearsIntersection(linear.left, linear.bottom),
+        tl: linearsIntersection(linear.top, linear.left),
+        tr: linearsIntersection(linear.top, linear.right),
+        br: linearsIntersection(linear.bottom, linear.right),
+        bl: linearsIntersection(linear.bottom, linear.left),
       };
     });
 
@@ -553,7 +498,7 @@ export default class Tabric {
       if (!this.cropStatic) {
         return;
       }
-      const { left = 0, top = 0 } = this.cropStatic;
+      const { left = 0, top = 0, angle = 0 } = this.cropStatic;
       const { tl: TL } = this.cropStatic.aCoords as ACoords;
 
       let l = left;
@@ -611,7 +556,14 @@ export default class Tabric {
     if (!this.cropStatic || !this.cropBackups || !this.cropTarget) {
       return;
     }
-    (this.cropTarget as any).cropStatic = { ...this.cropStaticBackups };
+    (this.cropTarget as any).cropStatic = this.cropStaticBackups;
+    this.cropTarget.setControlVisible('mtr', true).set({
+      lockMovementX: false,
+      lockMovementY: false,
+      lockSkewingX: false,
+      lockSkewingY: false,
+      lockScalingFlip: false,
+    });
     this._canvas.remove(this.cropStatic, this.cropTarget).add(this.cropBackups);
     this.cropBackups.moveTo(this.cropIndex);
     this._canvas.setActiveObject(this.cropBackups);
@@ -625,7 +577,7 @@ export default class Tabric {
       return;
     }
 
-    (this.cropTarget as any).cropStatic = { ...this.cropStatic };
+    (this.cropTarget as any).cropStatic = this.cropStatic;
     this._canvas.setActiveObject(this.cropTarget);
     this._canvas.remove(this.cropStatic);
     this.cropTarget.setControlVisible('mtr', true).set({
@@ -635,6 +587,56 @@ export default class Tabric {
       lockSkewingY: false,
       lockScalingFlip: false,
     });
+    // 计算移动和旋转偏移，首次裁剪绑定监听事件
+    if (!(this.cropTarget as any)?.cropbound) {
+      (this.cropTarget as any).cropbound = true;
+      let startLeft = 0;
+      let startTop = 0;
+      let startAngle = 0;
+      let startScaleX = 1;
+      let startScaleY = 1;
+
+      this.cropTarget.on('mousedown', function (this: fabric.Image, e: fabric.IEvent) {
+        const cropStatic = (this as any).cropStatic as fabric.Image;
+        startLeft = this.left || 0;
+        startTop = this.top || 0;
+        startAngle = this.angle || 0;
+        startScaleX = cropStatic.scaleX || 1;
+        startScaleY = cropStatic.scaleY || 1;
+      });
+      this.cropTarget.on('moved', function (this: fabric.Image) {
+        const cropStatic = (this as any).cropStatic as fabric.Image;
+        const { left = 0, top = 0 } = this;
+        cropStatic.set({
+          left: (cropStatic.left || 0) + (left - startLeft),
+          top: (cropStatic.top || 0) + (top - startTop),
+        });
+      });
+      this.cropTarget.on('rotated', function (this: fabric.Image) {
+        const cropStatic = (this as any).cropStatic as fabric.Image;
+        const centerPoint = this.getCenterPoint();
+        const { tl: TL } = cropStatic.aCoords as ACoords;
+        const point = getRotatedPoint(centerPoint, TL, (this.angle || 0) - startAngle);
+        cropStatic.set({
+          left: point.x,
+          top: point.y,
+          angle: this.angle,
+        });
+      });
+      this.cropTarget.on('scaled', function (this: fabric.Image) {
+        const cropStatic = (this as any).cropStatic as fabric.Image;
+        const { left = 0, top = 0 } = this;
+        const scaleX = (cropStatic.scaleX || 1) + (this.scaleX || 1) - startScaleX;
+        const scaleY = (cropStatic.scaleY || 1) + (this.scaleY || 1) - startScaleY;
+        cropStatic.set({
+          left: (cropStatic.left || 0) + (left - startLeft),
+          top: (cropStatic.top || 0) + (top - startTop),
+          scaleX,
+          scaleY,
+        });
+      });
+    }
+    // 清空
     this.cropTarget = null;
     this.cropBackups = null;
     this.cropStatic = null;
@@ -651,7 +653,6 @@ function getParallelLineDistance(lineA: Line, lineB: Line) {
   const b2 = lineB[1].x - lineB[0].x;
   const ratio = a1 ? a1 / a2 : b1 / b2;
   const c2 = (lineB[0].x * lineB[1].y - lineB[1].x * lineB[0].y) * ratio;
-  // console.log(a1, a2, b1, b2, c1, c2);
   return (c1 - c2) / Math.sqrt(a1 ** 2 + b1 ** 2);
 }
 
@@ -716,6 +717,12 @@ function linearsIntersection(linear1: LinearFunction, linear2: LinearFunction) {
   if (linear1.k === linear2.k) {
     return { x: Infinity, y: Infinity };
   }
+  if (!Number.isFinite(linear1.k)) {
+    return { x: linear1.reverseFunc(0), y: linear2.func(0) };
+  }
+  if (!Number.isFinite(linear2.k)) {
+    return { x: linear2.reverseFunc(0), y: linear1.func(0) };
+  }
   const x = (linear2.b - linear1.b) / (linear1.k - linear2.k);
   return {
     x,
@@ -748,4 +755,71 @@ function getRotatedPoint(origin: Point, point: Point, angle: number) {
     x: (point.x - origin.x) * Math.cos((angle * Math.PI) / 180) - (point.y - origin.y) * Math.sin((angle * Math.PI) / 180) + origin.x,
     y: (point.x - origin.x) * Math.sin((angle * Math.PI) / 180) + (point.y - origin.y) * Math.cos((angle * Math.PI) / 180) + origin.y,
   };
+}
+
+function linearFunction(pointA: Point, pointB: Point): LinearFunction {
+  const k = (pointA.y - pointB.y) / (pointA.x - pointB.x);
+  const b = pointA.y - k * pointA.x;
+  if (k === 0) {
+    const sign = Math.sign(pointB.x - pointA.x) * Infinity;
+    const y = pointA.y;
+    return {
+      k,
+      b,
+      reverseFunc: () => sign,
+      func: () => y,
+      A: pointA,
+      B: pointB,
+    };
+  } else if (!Number.isFinite(k)) {
+    const sign = Math.sign(pointB.y - pointA.y) * Infinity;
+    const x = pointA.x;
+    return {
+      k,
+      b,
+      reverseFunc: () => x,
+      func: () => sign,
+      A: pointA,
+      B: pointB,
+    };
+  } else {
+    return {
+      k,
+      b,
+      reverseFunc: (y: number) => (y - b) / k,
+      func: (x: number) => k * x + b,
+      A: pointA,
+      B: pointB,
+    };
+  }
+}
+
+function linearFunctionMove(linear: LinearFunction, offset: number) {
+  const k = linear.k;
+  if (k === 0) {
+    const y = linear.func(0) + offset;
+    return {
+      k,
+      b: y,
+      reverseFunc: linear.reverseFunc,
+      func: () => y,
+    };
+  } else if (!Number.isFinite(k)) {
+    const x = linear.reverseFunc(0) + offset;
+    const b = linear.b;
+    return {
+      k,
+      b,
+      reverseFunc: () => x,
+      func: linear.func,
+    };
+  } else {
+    const b = linear.b + offset;
+    return {
+      k,
+      b,
+      reverseFunc: (y: number) => (y - b) / k,
+      func: (x: number) => k * x + b,
+    };
+  }
 }
