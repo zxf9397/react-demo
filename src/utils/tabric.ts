@@ -262,108 +262,12 @@ export default class Tabric {
     let scaleWidth = Infinity;
     let scaleHeight = Infinity;
 
-    this.cropTarget.on('mousedown', (e: fabric.IEvent) => {
-      if (!this.cropTarget || !this.cropStatic) {
-        return;
-      }
-      const { width = 0, height = 0 } = this.cropTarget;
-      const { scaleX: imageScaleX = 1, scaleY: imageScaleY = 1 } = this.cropStatic;
-      const { tl, tr, br, bl } = this.cropTarget.get('aCoords') as ACoords;
-      const { tl: TL, tr: TR, br: BR, bl: BL } = this.cropStatic.get('aCoords') as ACoords;
-      const leftLinear = getLinearFunction(tl, bl);
-      const topLinear = getLinearFunction(tl, tr);
-      const rightLinear = getLinearFunction(tr, br);
-      const bottomLinear = getLinearFunction(br, bl);
-
-      const leftDistance = Math.abs(pointToLinearDistance(TL, leftLinear));
-      const topDistance = Math.abs(pointToLinearDistance(TL, topLinear));
-      const rightDistance = Math.abs(pointToLinearDistance(TR, rightLinear));
-      const bottomDistance = Math.abs(pointToLinearDistance(BR, bottomLinear));
-
-      switch (e.transform?.corner) {
-        case 'ml':
-          scaleWidth = width * imageScaleX + leftDistance;
-          break;
-        case 'mr':
-          scaleWidth = width * imageScaleX + rightDistance;
-          break;
-        case 'mt':
-          scaleHeight = height * imageScaleY + topDistance;
-          break;
-        case 'mb':
-          scaleHeight = height * imageScaleY + bottomDistance;
-          break;
-        case 'tl':
-          scaleWidth = width * imageScaleX + leftDistance;
-          scaleHeight = height * imageScaleY + topDistance;
-          break;
-        case 'tr':
-          scaleWidth = width * imageScaleX + rightDistance;
-          scaleHeight = height * imageScaleY + topDistance;
-          break;
-        case 'br':
-          scaleWidth = width * imageScaleX + rightDistance;
-          scaleHeight = height * imageScaleY + bottomDistance;
-          break;
-        case 'bl':
-          scaleWidth = width * imageScaleX + leftDistance;
-          scaleHeight = height * imageScaleY + bottomDistance;
-          break;
-      }
-    });
-    this.cropTarget.on('scaling', () => {
-      // this.cropTarget.set('opacity', 0);
-      if (!this.cropTarget) {
-        return;
-      }
-      const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = this.cropTarget;
-      let scaleW = width * scaleX;
-      let scaleH = height * scaleY;
-
-      if (scaleW > scaleWidth) {
-        scaleW = scaleWidth;
-      }
-
-      if (scaleH > scaleHeight) {
-        scaleH = scaleHeight;
-      }
-
-      this.cropTarget.set({
-        width: scaleW,
-        height: scaleH,
-        scaleX: 1,
-        scaleY: 1,
-      });
-    });
-    const calculateCrop = () => {
-      if (!this.cropTarget || !this.cropStatic) {
-        return;
-      }
-      const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = this.cropTarget;
-      const { scaleX: imageScaleX = 1, scaleY: imageScaleY = 1 } = this.cropStatic;
-
-      const { tl: TL } = this.cropStatic.aCoords as ACoords;
-      const point = this.cropTarget.toLocalPoint(new fabric.Point(TL.x, TL.y), 'left', 'top');
-
-      this.cropTarget.set({
-        width: (width * scaleX) / imageScaleX,
-        height: (height * scaleY) / imageScaleY,
-        cropX: Math.abs(point.x) / imageScaleX,
-        cropY: Math.abs(point.y) / imageScaleY,
-        scaleX: imageScaleX,
-        scaleY: imageScaleY,
-        opacity: 1,
-      });
-    };
-    this.cropTarget.on('scaled', calculateCrop);
-
     let linear: {
       left: LinearFunction;
       top: LinearFunction;
       right: LinearFunction;
       bottom: LinearFunction;
     } = {} as any;
-
     let coords: {
       tl: Point;
       tr: Point;
@@ -373,181 +277,266 @@ export default class Tabric {
 
     let minScaleX = 0;
     let minScaleY = 0;
-
-    this.cropStatic.on('mousedown', (e: fabric.IEvent) => {
-      if (!this.cropTarget || !this.cropStatic) {
-        return;
-      }
-      const { angle = 0 } = this.cropTarget;
-      const { tl, tr, br, bl } = this.cropTarget.get('aCoords') as ACoords;
-      const { tl: TL, tr: TR, br: BR, bl: BL } = this.cropStatic.get('aCoords') as ACoords;
-      const leftLinear = getLinearFunction(bl, tl);
-      const topLinear = getLinearFunction(tl, tr);
-      const rightLinear = getLinearFunction(tr, br);
-      const bottomLinear = getLinearFunction(br, bl);
-
-      const leftLINEAR = getLinearFunction(BL, TL);
-      const topLINEAR = getLinearFunction(TL, TR);
-      const rightLINEAR = getLinearFunction(TR, BR);
-      const bottomLINEAR = getLinearFunction(BR, BL);
-
-      // scaling
-      if (e.transform?.corner) {
-        const { width = 0, height = 0 } = this.cropStatic;
-        switch (e.transform?.corner) {
-          case 'ml':
-            minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
-            break;
-          case 'mr':
-            minScaleX = Math.abs(pointToLinearDistance(tr, leftLINEAR)) / width;
-            break;
-          case 'mt':
-            minScaleY = Math.abs(pointToLinearDistance(tl, bottomLINEAR)) / height;
-            break;
-          case 'mb':
-            minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
-            break;
-          case 'tl':
-            minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
-            minScaleY = Math.abs(pointToLinearDistance(tl, bottomLINEAR)) / height;
-            break;
-          case 'tr':
-            minScaleX = Math.abs(pointToLinearDistance(tr, leftLINEAR)) / width;
-            minScaleY = Math.abs(pointToLinearDistance(tl, bottomLINEAR)) / height;
-            break;
-          case 'br':
-            minScaleX = Math.abs(pointToLinearDistance(tr, leftLINEAR)) / width;
-            minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
-            break;
-          case 'bl':
-            minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
-            minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
-            break;
-        }
-        return;
-      }
-      // moving
-
-      const vLinear = linearFunctionMove(leftLINEAR, Number.isFinite(leftLINEAR.k) ? rightLinear.b - rightLINEAR.b : br.x - BR.x);
-      const hLinear = linearFunctionMove(topLINEAR, Number.isFinite(topLINEAR.k) ? bottomLinear.b - bottomLINEAR.b : br.x - BR.x);
-      const cAngle = (angle % 360) + (angle < 0 ? 360 : 0);
-      if (cAngle < 90) {
-        linear = {
-          left: vLinear as any,
-          top: hLinear as any,
-          right: leftLinear,
-          bottom: topLinear,
-        };
-      } else if (cAngle < 180) {
-        linear = {
-          left: topLinear,
-          top: vLinear as any,
-          right: hLinear as any,
-          bottom: leftLinear,
-        };
-      } else if (cAngle < 270) {
-        linear = {
-          left: leftLinear,
-          top: topLinear,
-          right: vLinear as any,
-          bottom: hLinear as any,
-        };
-      } else {
-        linear = {
-          left: hLinear as any,
-          top: leftLinear,
-          right: topLinear,
-          bottom: vLinear as any,
-        };
-      }
-      coords = {
-        tl: linearsIntersection(linear.top, linear.left),
-        tr: linearsIntersection(linear.top, linear.right),
-        br: linearsIntersection(linear.bottom, linear.right),
-        bl: linearsIntersection(linear.bottom, linear.left),
-      };
-    });
-
     let lastScaleX = 1;
     let lastScaleY = 1;
 
-    this.cropStatic.on('scaling', () => {
-      if (!this.cropStatic) {
-        return;
-      }
-      let scaleX = this.cropStatic.scaleX || 1;
-      let scaleY = this.cropStatic.scaleY || 1;
+    let maxScaleX = 1;
+    let maxScaleY = 1;
 
-      if (scaleX < minScaleX) {
-        scaleX = minScaleX;
-        scaleY = lastScaleY;
-      } else {
-        lastScaleY = scaleY;
-      }
+    if (!(this.cropTarget as any).cropStatic) {
+      this.cropTarget.on('mousedown', (e: fabric.IEvent) => {
+        if (!this.cropTarget || !this.cropStatic) {
+          return;
+        }
+        const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = this.cropTarget;
+        const { scaleX: imageScaleX = 1, scaleY: imageScaleY = 1, width: WIDTH = 0 } = this.cropStatic;
+        const { tl, tr, br, bl } = this.cropTarget.get('aCoords') as ACoords;
+        const { tl: TL, tr: TR, br: BR, bl: BL } = this.cropStatic.get('aCoords') as ACoords;
+        const leftLinear = getLinearFunction(tl, bl);
+        const topLinear = getLinearFunction(tl, tr);
+        const rightLinear = getLinearFunction(tr, br);
+        const bottomLinear = getLinearFunction(br, bl);
 
-      if (scaleY < minScaleY) {
-        scaleY = minScaleY;
-        scaleX = lastScaleX;
-      } else {
-        lastScaleX = scaleX;
-      }
+        const leftDistance = Math.abs(pointToLinearDistance(TL, leftLinear));
+        const topDistance = Math.abs(pointToLinearDistance(TL, topLinear));
+        const rightDistance = Math.abs(pointToLinearDistance(TR, rightLinear));
+        const bottomDistance = Math.abs(pointToLinearDistance(BR, bottomLinear));
 
-      this.cropStatic.set({ scaleX, scaleY });
-    });
+        switch (e.transform?.corner) {
+          case 'ml':
+            scaleWidth = width * imageScaleX + leftDistance;
+            break;
+          case 'mr':
+            scaleWidth = width * imageScaleX + rightDistance;
+            break;
+          case 'mt':
+            scaleHeight = height * imageScaleY + topDistance;
+            break;
+          case 'mb':
+            scaleHeight = height * imageScaleY + bottomDistance;
+            break;
+          case 'tl':
+            scaleWidth = width * imageScaleX + leftDistance;
+            scaleHeight = height * imageScaleY + topDistance;
+            break;
+          case 'tr':
+            scaleWidth = width * imageScaleX + rightDistance;
+            scaleHeight = height * imageScaleY + topDistance;
+            break;
+          case 'br':
+            scaleWidth = width * imageScaleX + rightDistance;
+            scaleHeight = height * imageScaleY + bottomDistance;
+            break;
+          case 'bl':
+            scaleWidth = width * imageScaleX + leftDistance;
+            scaleHeight = height * imageScaleY + bottomDistance;
+            break;
+        }
+      });
+      this.cropTarget.on('scaling', () => {
+        if (!this.cropTarget || !this.cropStatic) {
+          return;
+        }
 
-    this.cropStatic.on('moving', (e) => {
-      if (!this.cropStatic) {
-        return;
-      }
-      const { left = 0, top = 0, angle = 0 } = this.cropStatic;
-      const { tl: TL } = this.cropStatic.aCoords as ACoords;
+        const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = this.cropTarget;
 
-      let l = left;
-      let t = top;
+        this.cropTarget.set({
+          scaleX: Math.min(scaleX, scaleWidth / width),
+          scaleY: Math.min(scaleY, scaleHeight / height),
+        });
+      });
+      const calculateCrop = () => {
+        if (!this.cropTarget || !this.cropStatic) {
+          return;
+        }
 
-      const minL = linear.left.reverseFunc(TL.y);
-      const maxL = linear.right.reverseFunc(TL.y);
-      const minT = linear.top.func(TL.x);
-      const maxT = linear.bottom.func(TL.x);
+        const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = this.cropTarget;
+        const { scaleX: imageScaleX = 1, scaleY: imageScaleY = 1 } = this.cropStatic;
 
-      if (left < minL) {
-        if (top < minT) {
-          l = coords.tl.x;
-          t = coords.tl.y;
-        } else if (top > maxT) {
-          l = coords.bl.x;
-          t = coords.bl.y;
+        const { tl: TL } = this.cropStatic.aCoords as ACoords;
+        const point = this.cropTarget.toLocalPoint(new fabric.Point(TL.x, TL.y), 'left', 'top');
+
+        this.cropTarget.set({
+          width: (width * scaleX) / imageScaleX,
+          height: (height * scaleY) / imageScaleY,
+          cropX: Math.abs(point.x) / imageScaleX,
+          cropY: Math.abs(point.y) / imageScaleY,
+          scaleX: imageScaleX,
+          scaleY: imageScaleY,
+          opacity: 1,
+        });
+      };
+      this.cropTarget.on('scaled', calculateCrop);
+
+      this.cropStatic.on('mousedown', (e: fabric.IEvent) => {
+        if (!this.cropTarget || !this.cropStatic) {
+          return;
+        }
+        const { angle = 0 } = this.cropTarget;
+        const { tl, tr, br, bl } = this.cropTarget.get('aCoords') as ACoords;
+        const { tl: TL, tr: TR, br: BR, bl: BL } = this.cropStatic.get('aCoords') as ACoords;
+        const leftLinear = getLinearFunction(bl, tl);
+        const topLinear = getLinearFunction(tl, tr);
+        const rightLinear = getLinearFunction(tr, br);
+        const bottomLinear = getLinearFunction(br, bl);
+
+        const leftLINEAR = getLinearFunction(BL, TL);
+        const topLINEAR = getLinearFunction(TL, TR);
+        const rightLINEAR = getLinearFunction(TR, BR);
+        const bottomLINEAR = getLinearFunction(BR, BL);
+
+        // scaling
+        if (e.transform?.corner) {
+          const { width = 0, height = 0 } = this.cropStatic;
+          switch (e.transform?.corner) {
+            case 'ml':
+              minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
+              break;
+            case 'mr':
+              minScaleX = Math.abs(pointToLinearDistance(tr, leftLINEAR)) / width;
+              break;
+            case 'mt':
+              minScaleY = Math.abs(pointToLinearDistance(tl, bottomLINEAR)) / height;
+              break;
+            case 'mb':
+              minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
+              break;
+            case 'tl':
+              minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
+              minScaleY = Math.abs(pointToLinearDistance(tl, bottomLINEAR)) / height;
+              break;
+            case 'tr':
+              minScaleX = Math.abs(pointToLinearDistance(tr, leftLINEAR)) / width;
+              minScaleY = Math.abs(pointToLinearDistance(tl, bottomLINEAR)) / height;
+              break;
+            case 'br':
+              minScaleX = Math.abs(pointToLinearDistance(tr, leftLINEAR)) / width;
+              minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
+              break;
+            case 'bl':
+              minScaleX = Math.abs(pointToLinearDistance(tl, rightLINEAR)) / width;
+              minScaleY = Math.abs(pointToLinearDistance(bl, topLINEAR)) / height;
+              break;
+          }
+          return;
+        }
+        // moving
+
+        const vLinear = linearFunctionMove(leftLINEAR, Number.isFinite(leftLINEAR.k) ? rightLinear.b - rightLINEAR.b : br.x - BR.x);
+        const hLinear = linearFunctionMove(topLINEAR, Number.isFinite(topLINEAR.k) ? bottomLinear.b - bottomLINEAR.b : br.x - BR.x);
+        const cAngle = (angle % 360) + (angle < 0 ? 360 : 0);
+        if (cAngle < 90) {
+          linear = {
+            left: vLinear as any,
+            top: hLinear as any,
+            right: leftLinear,
+            bottom: topLinear,
+          };
+        } else if (cAngle < 180) {
+          linear = {
+            left: topLinear,
+            top: vLinear as any,
+            right: hLinear as any,
+            bottom: leftLinear,
+          };
+        } else if (cAngle < 270) {
+          linear = {
+            left: leftLinear,
+            top: topLinear,
+            right: vLinear as any,
+            bottom: hLinear as any,
+          };
         } else {
-          l = minL;
+          linear = {
+            left: hLinear as any,
+            top: leftLinear,
+            right: topLinear,
+            bottom: vLinear as any,
+          };
         }
-      } else if (left > maxL) {
-        if (top > maxT) {
-          l = coords.br.x;
-          t = coords.br.y;
-        } else if (top < minT) {
-          l = coords.tr.x;
-          t = coords.tr.y;
+        coords = {
+          tl: linearsIntersection(linear.top, linear.left),
+          tr: linearsIntersection(linear.top, linear.right),
+          br: linearsIntersection(linear.bottom, linear.right),
+          bl: linearsIntersection(linear.bottom, linear.left),
+        };
+      });
+      this.cropStatic.on('scaling', () => {
+        if (!this.cropStatic) {
+          return;
+        }
+        let scaleX = this.cropStatic.scaleX || 1;
+        let scaleY = this.cropStatic.scaleY || 1;
+
+        if (scaleX < minScaleX) {
+          scaleX = minScaleX;
+          scaleY = lastScaleY;
         } else {
-          l = maxL;
+          lastScaleY = scaleY;
         }
-      } else {
-        if (top < minT) {
-          t = minT;
-        } else if (top > maxT) {
-          t = maxT;
+
+        if (scaleY < minScaleY) {
+          scaleY = minScaleY;
+          scaleX = lastScaleX;
+        } else {
+          lastScaleX = scaleX;
         }
-      }
 
-      this.cropStatic.set({ left: l, top: t });
-    });
-    this.cropStatic.on('moved', () => {
-      if (!this.cropTarget) {
-        return;
-      }
-      this.cropTarget.set('opacity', 1);
-    });
+        this.cropStatic.set({ scaleX, scaleY });
+      });
+      this.cropStatic.on('moving', (e) => {
+        if (!this.cropStatic) {
+          return;
+        }
+        const { left = 0, top = 0, angle = 0 } = this.cropStatic;
+        const { tl: TL } = this.cropStatic.aCoords as ACoords;
 
-    this.cropStatic.on('modified', calculateCrop);
+        let l = left;
+        let t = top;
+
+        const minL = linear.left.reverseFunc(TL.y);
+        const maxL = linear.right.reverseFunc(TL.y);
+        const minT = linear.top.func(TL.x);
+        const maxT = linear.bottom.func(TL.x);
+
+        if (left < minL) {
+          if (top < minT) {
+            l = coords.tl.x;
+            t = coords.tl.y;
+          } else if (top > maxT) {
+            l = coords.bl.x;
+            t = coords.bl.y;
+          } else {
+            l = minL;
+          }
+        } else if (left > maxL) {
+          if (top > maxT) {
+            l = coords.br.x;
+            t = coords.br.y;
+          } else if (top < minT) {
+            l = coords.tr.x;
+            t = coords.tr.y;
+          } else {
+            l = maxL;
+          }
+        } else {
+          if (top < minT) {
+            t = minT;
+          } else if (top > maxT) {
+            t = maxT;
+          }
+        }
+
+        this.cropStatic.set({ left: l, top: t });
+      });
+      this.cropStatic.on('moved', () => {
+        if (!this.cropTarget) {
+          return;
+        }
+        this.cropTarget.set('opacity', 1);
+      });
+      this.cropStatic.on('modified', calculateCrop);
+    }
 
     this._canvas.add(this.cropStatic);
     this.cropTarget.bringToFront();
@@ -596,20 +585,11 @@ export default class Tabric {
       let startLeft = 0;
       let startTop = 0;
       let startAngle = 0;
-      let startScaleX = 1;
-      let startScaleY = 1;
-      let startWidth = 0;
-      let startCenter: fabric.Point;
 
-      this.cropTarget.on('mousedown', function (this: fabric.Image, e: fabric.IEvent) {
-        const cropStatic = (this as any).cropStatic as fabric.Image;
+      this.cropTarget.on('mousedown', function (this: fabric.Image) {
         startLeft = this.left || 0;
         startTop = this.top || 0;
         startAngle = this.angle || 0;
-        startScaleX = cropStatic.scaleX || 1;
-        startScaleY = cropStatic.scaleY || 1;
-        startWidth = this.width || 0;
-        startCenter = this.getCenterPoint();
       });
       this.cropTarget.on('moved', function (this: fabric.Image) {
         const cropStatic = (this as any).cropStatic as fabric.Image;
@@ -622,8 +602,8 @@ export default class Tabric {
       this.cropTarget.on('rotated', function (this: fabric.Image) {
         const cropStatic = (this as any).cropStatic as fabric.Image;
         const centerPoint = this.getCenterPoint();
-        const { tl: TL } = cropStatic.aCoords as ACoords;
-        const point = getRotatedPoint(centerPoint, TL, (this.angle || 0) - startAngle);
+        const { left = 0, top = 0 } = cropStatic;
+        const point = getRotatedPoint(centerPoint, { x: left, y: top }, (this.angle || 0) - startAngle);
         cropStatic.set({
           left: point.x,
           top: point.y,
@@ -636,23 +616,20 @@ export default class Tabric {
         }
         const { tl } = this.aCoords as ACoords;
         const cropStatic = (this as any).cropStatic as fabric.Image;
-        const { left = 0, top = 0, scaleX = 1, scaleY = 1, cropX = 0, cropY = 0, angle = 0 } = this;
+        const { tl: TL } = cropStatic.aCoords as ACoords;
+        const { scaleX = 1, scaleY = 1, cropX = 0, cropY = 0, angle = 0 } = this;
 
-        cropStatic
-          .set({
-            scaleX,
-            scaleY,
-          })
-          .setCoords();
-        const x1 = tl.x - Math.cos((angle * Math.PI) / 180) * cropX;
-        const y1 = tl.y - Math.sin((angle * Math.PI) / 180) * cropX;
-        const x2 = tl.x + Math.sin((angle * Math.PI) / 180) * cropY;
-        const y2 = tl.y - Math.cos((angle * Math.PI) / 180) * cropY;
-        const x3 = x1 + (x2 - tl.x);
-        const y3 = y1 + (tl.y - y2);
+        const x1 = TL.x - Math.sin((angle * Math.PI) / 180) * cropY * scaleY;
+        const y1 = TL.y + Math.cos((angle * Math.PI) / 180) * cropY * scaleY;
+        const x2 = TL.x + Math.cos((angle * Math.PI) / 180) * cropX * scaleX;
+        const y2 = TL.y + Math.sin((angle * Math.PI) / 180) * cropX * scaleX;
+        const x3 = x1 + (x2 - TL.x);
+        const y3 = y1 + (y2 - TL.y);
         cropStatic.set({
-          left: left - (tl.x - x3) * 1,
-          top: top - (tl.y - y3) * 1,
+          left: tl.x - (x3 - TL.x),
+          top: tl.y - (y3 - TL.y),
+          scaleX,
+          scaleY,
         });
       });
     }
