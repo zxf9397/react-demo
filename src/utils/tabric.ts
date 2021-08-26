@@ -28,36 +28,13 @@ function wrapWithFireEvent(
   };
 }
 
-fabric.Image.prototype.controls.tl.actionHandler = wrapWithFireEvent(
-  'scaling',
-  (fabric as any).controlsUtils.wrapWithFixedAnchor(function (e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
-    return (fabric as any).controlsUtils.scalingEqually(e, transform, x, y);
-  })
-);
-fabric.Image.prototype.controls.mt.actionHandler = wrapWithFireEvent(
-  'scaling',
-  (fabric as any).controlsUtils.wrapWithFixedAnchor(function (e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
-    return (fabric as any).controlsUtils.scalingYOrSkewingX(e, transform, x, y);
-  })
-);
-fabric.Image.prototype.controls.tr.actionHandler = wrapWithFireEvent(
-  'scaling',
-  (fabric as any).controlsUtils.wrapWithFixedAnchor(function (e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
-    return (fabric as any).controlsUtils.scalingEqually(e, transform, x, y);
-  })
-);
-fabric.Image.prototype.controls.bl.actionHandler = wrapWithFireEvent(
-  'scaling',
-  (fabric as any).controlsUtils.wrapWithFixedAnchor(function (e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
-    return (fabric as any).controlsUtils.scalingEqually(e, transform, x, y);
-  })
-);
-fabric.Image.prototype.controls.ml.actionHandler = wrapWithFireEvent(
-  'scaling',
-  (fabric as any).controlsUtils.wrapWithFixedAnchor(function (e: MouseEvent, transform: fabric.Transform, x: number, y: number) {
-    return (fabric as any).controlsUtils.scalingXOrSkewingY(e, transform, x, y);
-  })
-);
+function setControlsActionHandler(obj: fabric.Object) {
+  obj.controls.tl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
+  obj.controls.mt.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingYOrSkewingX);
+  obj.controls.tr.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
+  obj.controls.bl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
+  obj.controls.ml.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingXOrSkewingY);
+}
 export default class Tabric {
   private _canvas;
 
@@ -162,6 +139,7 @@ export default class Tabric {
     (this.croppingTarget as any).cropping = true;
 
     if (!(this.croppingTarget as any).croppingOrigin) {
+      setControlsActionHandler(this.croppingTarget);
       let scaleWidth = Infinity;
       let scaleHeight = Infinity;
 
@@ -383,14 +361,14 @@ export default class Tabric {
         let scaleX = this.croppingOrigin.scaleX || 1;
         let scaleY = this.croppingOrigin.scaleY || 1;
 
-        if (scaleX < minScaleX) {
+        if (scaleX <= minScaleX) {
           scaleX = minScaleX;
           scaleY = lastScaleY;
         } else {
           lastScaleY = scaleY;
         }
 
-        if (scaleY < minScaleY) {
+        if (scaleY <= minScaleY) {
           scaleY = minScaleY;
           scaleX = lastScaleX;
         } else {
@@ -471,7 +449,6 @@ export default class Tabric {
       lockSkewingX: false,
       lockSkewingY: false,
       lockScalingFlip: false,
-      opacity: 1,
     });
     this._canvas.remove(this.croppingOrigin, this.croppingTarget).add(this.croppingTargetBackup);
     this.croppingTargetBackup.moveTo(this.croppingIndex);
@@ -497,7 +474,6 @@ export default class Tabric {
       lockSkewingX: false,
       lockSkewingY: false,
       lockScalingFlip: false,
-      opacity: 1,
     });
     // after cropping, move the cropped image we need to move the original image as well.
     // the same to rotation and scale
