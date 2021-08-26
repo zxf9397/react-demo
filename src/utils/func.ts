@@ -119,6 +119,12 @@ export function linearFunctionMove(linear: LinearFunction, offset: number) {
   }
 }
 
+/**
+ * 获取点关于直线的对称点
+ * @param point
+ * @param linear
+ * @returns
+ */
 export function symmetricalPoint(point: Point, linear: LinearFunction) {
   if (linear.k === 0) {
     return {
