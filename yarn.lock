@@ -293,6 +293,11 @@
   resolved "https://registry.nlark.com/@types/fabric/download/@types/fabric-4.5.1.tgz#5d0cc303f0694e1f0eecc6e514f886d7111e3376"
   integrity sha1-XQzDA/BpTh8O7MblFPiG1xEeM3Y=
 
+"@types/history@*":
+  version "4.7.9"
+  resolved "https://registry.nlark.com/@types/history/download/@types/history-4.7.9.tgz#1cfb6d60ef3822c589f18e70f8b12f9a28ce8724"
+  integrity sha1-HPttYO84IsWJ8Y5w+LEvmijOhyQ=
+
 "@types/node@^16.4.3":
   version "16.4.3"
   resolved "https://registry.nlark.com/@types/node/download/@types/node-16.4.3.tgz?cache=0&sync_timestamp=1627257813519&other_urls=https%3A%2F%2Fregistry.nlark.com%2F%40types%2Fnode%2Fdownload%2F%40types%2Fnode-16.4.3.tgz#c01c1a215721f6dec71b47d88b4687463601ba48"
@@ -315,6 +320,14 @@
   resolved "https://registry.nlark.com/@types/react-lazyload/download/@types/react-lazyload-3.1.1.tgz#98b0565031d058c84802e7c965f495c5fb89d864"
   integrity sha1-mLBWUDHQWMhIAufJZfSVxfuJ2GQ=
   dependencies:
+    "@types/react" "*"
+
+"@types/react-router@^5.1.16":
+  version "5.1.16"
+  resolved "https://registry.nlark.com/@types/react-router/download/@types/react-router-5.1.16.tgz?cache=0&sync_timestamp=1629709006999&other_urls=https%3A%2F%2Fregistry.nlark.com%2F%40types%2Freact-router%2Fdownload%2F%40types%2Freact-router-5.1.16.tgz#f3ba045fb96634e38b21531c482f9aeb37608a99"
+  integrity sha1-87oEX7lmNOOLIVMcSC+a6zdgipk=
+  dependencies:
+    "@types/history" "*"
     "@types/react" "*"
 
 "@types/react-virtualized@^9.21.12":
