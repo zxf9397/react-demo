@@ -35,28 +35,6 @@ function setControlsActionHandler(obj: fabric.Object) {
   obj.controls.bl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
   obj.controls.ml.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingXOrSkewingY);
 }
-
-function wrapWithModified(handler: (target: fabric.Image, e: { angle?: number; target?: fabric.Object }) => void) {
-  return function (e: fabric.IEvent) {
-    console.log(e);
-    let targets: fabric.Image[] = [];
-    if (e.target?.type === 'image' && (e.target as any).croppingOrigin) {
-      targets = [e.target as fabric.Image];
-    } else if (e.target?.type === 'activeSelection') {
-      targets = (e.target as fabric.ActiveSelection)._objects.filter((obj) => obj.type === 'image' && (obj as any).croppingOrigin) as fabric.Image[];
-    }
-    targets.forEach((target) => {
-      if ((e as any).action === 'rotate') {
-        handler(target, {
-          target: e.target,
-          angle: e.target?.type === 'image' ? target.angle : (target.angle || 0) + (e.target?.angle || 0),
-        });
-      } else {
-        handler(target, { target: e.target });
-      }
-    });
-  };
-}
 export default class Tabric {
   private _canvas;
 
@@ -94,14 +72,14 @@ export default class Tabric {
 
   // initialize cropping event
   _initializeCropping = () => {
-    this._canvas.on('mouse:down', (e) => {
+    this._canvas.on('mouse:down', (e: fabric.IEvent) => {
       if (!this.croppingTarget || e.target === this.croppingTarget || e.target === this.croppingOrigin) {
         return;
       }
       // 裁切中，点击其他区域默认触发裁切事件
       this.confirmCropping();
     });
-    this._canvas.on('mouse:dblclick', (e) => {
+    this._canvas.on('mouse:dblclick', (e: fabric.IEvent) => {
       if (!this.croppingTarget) {
         if (e.target?.type === 'image') {
           this.startCropping();
@@ -112,37 +90,6 @@ export default class Tabric {
         this.confirmCropping();
       }
     });
-    this._canvas.on(
-      'mouse:down:before',
-      wrapWithModified(function (target) {
-        const croppingTarget = target as any;
-        croppingTarget.state = {
-          left: target.left || 0,
-          top: target.top || 0,
-          angle: target.angle || 0,
-        };
-      })
-    );
-
-    this._canvas.on(
-      'object:rotated',
-      wrapWithModified(function (target, e) {
-        target.canvas?.discardActiveObject();
-        target.canvas?.setActiveObject(e.target as fabric.Object);
-        target.setCoords();
-        const croppingOrigin = (target as any).croppingOrigin as fabric.Image;
-        const centerPoint = target.getCenterPoint();
-        const { tl } = croppingOrigin.aCoords as ACoords;
-        const point = getRotatedPoint(centerPoint, { x: tl.x, y: tl.y }, (e?.angle || 0) - (target as any).state.angle);
-        croppingOrigin
-          .set({
-            left: point.x,
-            top: point.y,
-            angle: e.angle || 0,
-          })
-          .setCoords();
-      })
-    );
   };
 
   startCropping = () => {
@@ -190,6 +137,118 @@ export default class Tabric {
         lockScalingFlip: true,
       });
     (this.croppingTarget as any).cropping = true;
+
+    if ((this.croppingTarget as any).croppingOrigin) {
+      const diffScale =
+        (this.croppingTarget as any).lastState.scaleX !== this.croppingTarget.scaleX ||
+        (this.croppingTarget as any).lastState.scaleY !== this.croppingTarget.scaleY;
+      const diffAngle = (this.croppingTarget as any).lastState.angle !== this.croppingTarget.angle;
+      const diffFlipX = (this.croppingTarget as any).lastState.flipX !== this.croppingTarget.flipX;
+      const diffFlipY = (this.croppingTarget as any).lastState.flipY !== this.croppingTarget.flipY;
+
+      if (diffScale) {
+        scale(this.croppingTarget, this.croppingOrigin);
+        if (diffAngle) {
+          rotate(this.croppingTarget, this.croppingOrigin);
+          if (diffFlipX) {
+            flipX(this.croppingTarget, this.croppingOrigin);
+          }
+          if (diffFlipY) {
+            flipY(this.croppingTarget, this.croppingOrigin);
+          }
+        }
+      } else if (diffAngle) {
+        rotate(this.croppingTarget, this.croppingOrigin);
+        if (diffFlipX) {
+          flipX(this.croppingTarget, this.croppingOrigin);
+        }
+        if (diffFlipY) {
+          flipY(this.croppingTarget, this.croppingOrigin);
+        }
+      } else if (diffFlipX || diffFlipY) {
+        if (diffFlipX) {
+          flipX(this.croppingTarget, this.croppingOrigin);
+        }
+        if (diffFlipY) {
+          flipY(this.croppingTarget, this.croppingOrigin);
+        }
+      } else {
+        move(this.croppingTarget, this.croppingOrigin);
+      }
+      // move
+      function move(croppingTarget: fabric.Image, croppingOrigin: fabric.Image) {
+        const { left = 0, top = 0 } = croppingTarget;
+        const l = (croppingOrigin.left || 0) + (left - (croppingTarget as any).lastState.left);
+        const t = (croppingOrigin.top || 0) + (top - (croppingTarget as any).lastState.top);
+        croppingOrigin
+          .set({
+            left: l,
+            top: t,
+          })
+          .setCoords();
+        (croppingTarget as any).lastState.left = l;
+        (croppingTarget as any).lastState.top = t;
+      }
+      // rotate
+      function rotate(croppingTarget: fabric.Image, croppingOrigin: fabric.Image) {
+        const centerPoint = croppingTarget.getCenterPoint();
+        const { left = 0, top = 0 } = croppingOrigin;
+        const point = getRotatedPoint(centerPoint, { x: left, y: top }, (croppingTarget.angle || 0) - (croppingTarget as any).lastState.angle);
+        croppingOrigin
+          .set({
+            left: point.x,
+            top: point.y,
+            angle: croppingTarget.angle,
+          })
+          .setCoords();
+      }
+      // scale
+      function scale(croppingTarget: fabric.Image, croppingOrigin: fabric.Image) {
+        const { tl } = croppingTarget.aCoords as ACoords;
+        const { scaleX = 1, scaleY = 1, cropX = 0, cropY = 0, angle = 0 } = croppingTarget;
+        const mathSin = Math.sin((angle * Math.PI) / 180);
+        const mathCos = Math.cos((angle * Math.PI) / 180);
+        const scaleCropX = cropX * scaleX;
+        const scaleCropY = cropY * scaleY;
+        const l = tl.x + mathSin * scaleCropY - mathCos * scaleCropX;
+        const t = tl.y - mathCos * scaleCropY - mathSin * scaleCropX;
+        croppingOrigin
+          .set({
+            left: l,
+            top: t,
+            scaleX,
+            scaleY,
+          })
+          .setCoords();
+        (croppingTarget as any).lastState.left = l;
+        (croppingTarget as any).lastState.top = t;
+      }
+
+      // flipX
+      function flipX(croppingTarget: fabric.Image, croppingOrigin: fabric.Image) {
+        const centerPoint = croppingTarget.getCenterPoint();
+        const { tl, tr } = croppingTarget.aCoords as ACoords;
+        const { tl: TL, tr: TR } = croppingOrigin.aCoords as ACoords;
+        const point = symmetricalPoint(TL, linearFunction(centerPoint, { x: (tl.x + tr.x) / 2, y: (tl.y + tr.y) / 2 }));
+        const l = point.x - (TR.x - TL.x);
+        const t = point.y - (TR.y - TL.y);
+        croppingOrigin.set({ left: l, top: t, flipX: croppingTarget.flipX }).setCoords();
+        (croppingTarget as any).lastState.left = l;
+        (croppingTarget as any).lastState.top = t;
+      }
+      // flipY
+      function flipY(croppingTarget: fabric.Image, croppingOrigin: fabric.Image) {
+        const centerPoint = croppingTarget.getCenterPoint();
+        const { tl, bl } = croppingTarget.aCoords as ACoords;
+        const { tl: TL, bl: BL } = croppingOrigin.aCoords as ACoords;
+        const point = symmetricalPoint(TL, linearFunction(centerPoint, { x: (tl.x + bl.x) / 2, y: (tl.y + bl.y) / 2 }));
+        const l = point.x - (BL.x - TL.x);
+        const t = point.y - (BL.y - TL.y);
+        croppingOrigin.set({ left: l, top: t, flipY: croppingTarget.flipY }).setCoords();
+        (croppingTarget as any).lastState.left = l;
+        (croppingTarget as any).lastState.top = t;
+      }
+    }
 
     if (!(this.croppingTarget as any).croppingOrigin) {
       setControlsActionHandler(this.croppingTarget);
@@ -528,6 +587,18 @@ export default class Tabric {
       lockSkewingY: false,
       lockScalingFlip: false,
     });
+    const croppingTarget = this.croppingTarget as any;
+    croppingTarget.lastState = {
+      left: this.croppingTarget.left,
+      top: this.croppingTarget.top,
+      angle: this.croppingTarget.angle,
+      scaleX: this.croppingTarget.scaleX,
+      scaleY: this.croppingTarget.scaleY,
+      flipX: this.croppingTarget.flipX,
+      flipY: this.croppingTarget.flipY,
+    };
+    (this.croppingTarget as any).lastTarget = fabric.util.object.clone(this.croppingTarget);
+
     // after cropping, move the cropped image we need to move the original image as well.
     // the same to rotation and scale
     if (!(this.croppingTarget as any).cropbound) {
@@ -540,50 +611,6 @@ export default class Tabric {
         startLeft = this.left || 0;
         startTop = this.top || 0;
         startAngle = this.angle || 0;
-      });
-
-      this.croppingTarget.on('moved', function (this: fabric.Image) {
-        const croppingOrigin = (this as any).croppingOrigin as fabric.Image;
-        const { left = 0, top = 0 } = this;
-        croppingOrigin
-          .set({
-            left: (croppingOrigin.left || 0) + (left - startLeft),
-            top: (croppingOrigin.top || 0) + (top - startTop),
-          })
-          .setCoords();
-      });
-      // this.croppingTarget.on('rotated', function (this: fabric.Image) {
-      //   const croppingOrigin = (this as any).croppingOrigin as fabric.Image;
-      //   const centerPoint = this.getCenterPoint();
-      //   const { left = 0, top = 0 } = croppingOrigin;
-      //   const point = getRotatedPoint(centerPoint, { x: left, y: top }, (this.angle || 0) - startAngle);
-      //   croppingOrigin
-      //     .set({
-      //       left: point.x,
-      //       top: point.y,
-      //       angle: this.angle,
-      //     })
-      //     .setCoords();
-      // });
-      this.croppingTarget.on('scaled', function (this: fabric.Image) {
-        if ((this as any).cropping) {
-          return;
-        }
-        const croppingOrigin = (this as any).croppingOrigin as fabric.Image;
-        const { tl } = this.aCoords as ACoords;
-        const { scaleX = 1, scaleY = 1, cropX = 0, cropY = 0, angle = 0 } = this;
-        const mathSin = Math.sin((angle * Math.PI) / 180);
-        const mathCos = Math.cos((angle * Math.PI) / 180);
-        const scaleCropX = cropX * scaleX;
-        const scaleCropY = cropY * scaleY;
-        croppingOrigin
-          .set({
-            left: tl.x + mathSin * scaleCropY - mathCos * scaleCropX,
-            top: tl.y - mathCos * scaleCropY - mathSin * scaleCropX,
-            scaleX,
-            scaleY,
-          })
-          .setCoords();
       });
     }
     // clear
@@ -598,15 +625,15 @@ export default class Tabric {
       return;
     }
     const flipX = !activeObj.get('flipX');
-    activeObj.set('flipX', flipX);
+    activeObj.set('flipX', flipX).setCoords();
     const croppingOrigin = (activeObj as any).croppingOrigin as fabric.Image;
-    if (croppingOrigin) {
-      const centerPoint = activeObj.getCenterPoint();
-      const { tl, tr } = activeObj.aCoords as ACoords;
-      const { tl: TL, tr: TR } = croppingOrigin.aCoords as ACoords;
-      const point = symmetricalPoint(TL, linearFunction(centerPoint, { x: (tl.x + tr.x) / 2, y: (tl.y + tr.y) / 2 }));
-      croppingOrigin.set({ left: point.x - (TR.x - TL.x), top: point.y - (TR.y - TL.y), flipX }).setCoords();
-    }
+    // if (croppingOrigin) {
+    //   const centerPoint = activeObj.getCenterPoint();
+    //   const { tl, tr } = activeObj.aCoords as ACoords;
+    //   const { tl: TL, tr: TR } = croppingOrigin.aCoords as ACoords;
+    //   const point = symmetricalPoint(TL, linearFunction(centerPoint, { x: (tl.x + tr.x) / 2, y: (tl.y + tr.y) / 2 }));
+    //   croppingOrigin.set({ left: point.x - (TR.x - TL.x), top: point.y - (TR.y - TL.y), flipX }).setCoords();
+    // }
     this._canvas.renderAll();
   };
 
@@ -618,13 +645,13 @@ export default class Tabric {
     const flipY = !activeObj.get('flipY');
     activeObj.set('flipY', flipY);
     const croppingOrigin = (activeObj as any).croppingOrigin as fabric.Image;
-    if (croppingOrigin) {
-      const centerPoint = activeObj.getCenterPoint();
-      const { tl, bl } = activeObj.aCoords as ACoords;
-      const { tl: TL, bl: BL } = croppingOrigin.aCoords as ACoords;
-      const point = symmetricalPoint(TL, linearFunction(centerPoint, { x: (tl.x + bl.x) / 2, y: (tl.y + bl.y) / 2 }));
-      croppingOrigin.set({ left: point.x - (BL.x - TL.x), top: point.y - (BL.y - TL.y), flipY }).setCoords();
-    }
+    // if (croppingOrigin) {
+    //   const centerPoint = activeObj.getCenterPoint();
+    //   const { tl, bl } = activeObj.aCoords as ACoords;
+    //   const { tl: TL, bl: BL } = croppingOrigin.aCoords as ACoords;
+    //   const point = symmetricalPoint(TL, linearFunction(centerPoint, { x: (tl.x + bl.x) / 2, y: (tl.y + bl.y) / 2 }));
+    //   croppingOrigin.set({ left: point.x - (BL.x - TL.x), top: point.y - (BL.y - TL.y), flipY }).setCoords();
+    // }
     this._canvas.renderAll();
   };
 }
