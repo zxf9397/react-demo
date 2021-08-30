@@ -20,25 +20,23 @@ function wrapWithFireEvent(
   actionHandler: (eventData: MouseEvent, transformData: fabric.Transform, x: number, y: number) => boolean
 ) {
   return function (eventData: MouseEvent, transform: fabric.Transform, x: number, y: number) {
-    var actionPerformed = actionHandler(eventData, transform, x, y);
+    const actionPerformed = actionHandler(eventData, transform, x, y);
     if (actionPerformed) {
       (fabric as any).controlsUtils.fireEvent(eventName, commonEventInfo(eventData, transform, x, y));
     }
     return actionPerformed;
   };
 }
-
 function setControlsActionHandler(obj: fabric.Object) {
+  // 解决缩放时的抖动
   obj.controls.tl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
   obj.controls.mt.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingYOrSkewingX);
   obj.controls.tr.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
   obj.controls.bl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
   obj.controls.ml.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingXOrSkewingY);
 }
-
 function wrapWithModified(handler: (target: fabric.Image, e: { angle?: number; target?: fabric.Object }) => void) {
   return function (e: fabric.IEvent) {
-    console.log(e);
     let targets: fabric.Image[] = [];
     if (e.target?.type === 'image' && (e.target as any).croppingOrigin) {
       targets = [e.target as fabric.Image];
@@ -82,7 +80,6 @@ export default class Tabric {
     );
   }
 
-  /* cropping module */
   // real cropping object
   croppingTarget: CroppingObject = null;
   croppingTargetBackup: CroppingObject = null;
@@ -112,37 +109,11 @@ export default class Tabric {
         this.confirmCropping();
       }
     });
-    this._canvas.on(
-      'mouse:down:before',
-      wrapWithModified(function (target) {
-        const croppingTarget = target as any;
-        croppingTarget.state = {
-          left: target.left || 0,
-          top: target.top || 0,
-          angle: target.angle || 0,
-        };
-      })
-    );
+    ['object:modified', 'object:rotating', 'object:scaling', 'object:fliped'].forEach((event) => {
+      this._canvas.on(event, wrapWithModified(updateMinions));
+    });
 
-    this._canvas.on(
-      'object:rotated',
-      wrapWithModified(function (target, e) {
-        target.canvas?.discardActiveObject();
-        target.canvas?.setActiveObject(e.target as fabric.Object);
-        target.setCoords();
-        const croppingOrigin = (target as any).croppingOrigin as fabric.Image;
-        const centerPoint = target.getCenterPoint();
-        const { tl } = croppingOrigin.aCoords as ACoords;
-        const point = getRotatedPoint(centerPoint, { x: tl.x, y: tl.y }, (e?.angle || 0) - (target as any).state.angle);
-        croppingOrigin
-          .set({
-            left: point.x,
-            top: point.y,
-            angle: e.angle || 0,
-          })
-          .setCoords();
-      })
-    );
+    this._canvas.on('object:modified', wrapWithModified(bindFollow));
   };
 
   startCropping = () => {
@@ -489,7 +460,6 @@ export default class Tabric {
     this.croppingTarget.bringToFront();
   };
 
-  //
   cancelCropping = () => {
     if (!this.croppingOrigin || !this.croppingTargetBackup || !this.croppingTarget) {
       return;
@@ -528,64 +498,7 @@ export default class Tabric {
       lockSkewingY: false,
       lockScalingFlip: false,
     });
-    // after cropping, move the cropped image we need to move the original image as well.
-    // the same to rotation and scale
-    if (!(this.croppingTarget as any).cropbound) {
-      (this.croppingTarget as any).cropbound = true;
-      let startLeft = 0;
-      let startTop = 0;
-      let startAngle = 0;
-      // record position
-      this.croppingTarget.on('mousedown', function (this: fabric.Image) {
-        startLeft = this.left || 0;
-        startTop = this.top || 0;
-        startAngle = this.angle || 0;
-      });
-
-      this.croppingTarget.on('moved', function (this: fabric.Image) {
-        const croppingOrigin = (this as any).croppingOrigin as fabric.Image;
-        const { left = 0, top = 0 } = this;
-        croppingOrigin
-          .set({
-            left: (croppingOrigin.left || 0) + (left - startLeft),
-            top: (croppingOrigin.top || 0) + (top - startTop),
-          })
-          .setCoords();
-      });
-      // this.croppingTarget.on('rotated', function (this: fabric.Image) {
-      //   const croppingOrigin = (this as any).croppingOrigin as fabric.Image;
-      //   const centerPoint = this.getCenterPoint();
-      //   const { left = 0, top = 0 } = croppingOrigin;
-      //   const point = getRotatedPoint(centerPoint, { x: left, y: top }, (this.angle || 0) - startAngle);
-      //   croppingOrigin
-      //     .set({
-      //       left: point.x,
-      //       top: point.y,
-      //       angle: this.angle,
-      //     })
-      //     .setCoords();
-      // });
-      this.croppingTarget.on('scaled', function (this: fabric.Image) {
-        if ((this as any).cropping) {
-          return;
-        }
-        const croppingOrigin = (this as any).croppingOrigin as fabric.Image;
-        const { tl } = this.aCoords as ACoords;
-        const { scaleX = 1, scaleY = 1, cropX = 0, cropY = 0, angle = 0 } = this;
-        const mathSin = Math.sin((angle * Math.PI) / 180);
-        const mathCos = Math.cos((angle * Math.PI) / 180);
-        const scaleCropX = cropX * scaleX;
-        const scaleCropY = cropY * scaleY;
-        croppingOrigin
-          .set({
-            left: tl.x + mathSin * scaleCropY - mathCos * scaleCropX,
-            top: tl.y - mathCos * scaleCropY - mathSin * scaleCropX,
-            scaleX,
-            scaleY,
-          })
-          .setCoords();
-      });
-    }
+    bindFollow(this.croppingTarget);
     // clear
     this.croppingTarget = null;
     this.croppingTargetBackup = null;
@@ -597,16 +510,10 @@ export default class Tabric {
     if (!activeObj || this.croppingTarget) {
       return;
     }
-    const flipX = !activeObj.get('flipX');
-    activeObj.set('flipX', flipX);
-    const croppingOrigin = (activeObj as any).croppingOrigin as fabric.Image;
-    if (croppingOrigin) {
-      const centerPoint = activeObj.getCenterPoint();
-      const { tl, tr } = activeObj.aCoords as ACoords;
-      const { tl: TL, tr: TR } = croppingOrigin.aCoords as ACoords;
-      const point = symmetricalPoint(TL, linearFunction(centerPoint, { x: (tl.x + tr.x) / 2, y: (tl.y + tr.y) / 2 }));
-      croppingOrigin.set({ left: point.x - (TR.x - TL.x), top: point.y - (TR.y - TL.y), flipX }).setCoords();
-    }
+    const flipX = !activeObj.flipX;
+    activeObj.set('flipX', flipX).setCoords();
+    wrapWithModified(updateMinions)({ target: activeObj } as any);
+    this._canvas.fire('object:fliped', { target: activeObj });
     this._canvas.renderAll();
   };
 
@@ -615,16 +522,67 @@ export default class Tabric {
     if (!activeObj || this.croppingTarget) {
       return;
     }
-    const flipY = !activeObj.get('flipY');
-    activeObj.set('flipY', flipY);
-    const croppingOrigin = (activeObj as any).croppingOrigin as fabric.Image;
-    if (croppingOrigin) {
-      const centerPoint = activeObj.getCenterPoint();
-      const { tl, bl } = activeObj.aCoords as ACoords;
-      const { tl: TL, bl: BL } = croppingOrigin.aCoords as ACoords;
-      const point = symmetricalPoint(TL, linearFunction(centerPoint, { x: (tl.x + bl.x) / 2, y: (tl.y + bl.y) / 2 }));
-      croppingOrigin.set({ left: point.x - (BL.x - TL.x), top: point.y - (BL.y - TL.y), flipY }).setCoords();
-    }
+    const flipY = !activeObj.flipY;
+    activeObj.set('flipY', flipY).setCoords();
+    this._canvas.fire('object:fliped', { target: activeObj });
     this._canvas.renderAll();
   };
+}
+
+function updateMinions(croppingTarget: fabric.Object) {
+  const croppingOrigin = (croppingTarget as any).croppingOrigin as fabric.Object;
+  // 直接返回
+  if ((croppingTarget as any).cropping || !(croppingOrigin as any).relationship) {
+    return;
+  }
+
+  const relationship: number[] = (croppingOrigin as any).relationship;
+
+  // 将两个矩阵变换叠加，得到新的变换规则
+  const newTransform = fabric.util.multiplyTransformMatrices(
+    // 返回当前 “主人” 经过 move/rotate/... 操作后的变换矩阵
+    croppingTarget.calcTransformMatrix(),
+    // 和 “主随关系” 矩阵相叠加
+    relationship
+  );
+
+  // 将包含6个数字元素的数组转换为属性的集合
+  const opt = fabric.util.qrDecompose(newTransform);
+
+  // 设置“随从” X/Y 轴平方向都不翻转
+  croppingOrigin.set({
+    flipX: false,
+    flipY: false,
+  });
+
+  // 设置“随从”原点的位置，这里将矩形的中心作为原点
+  croppingOrigin.setPositionByOrigin({ x: opt.translateX, y: opt.translateY } as fabric.Point, 'center', 'center');
+
+  // 将上面从矩阵数组转换而得到的属性集合对象作为“随从”的新配置
+  croppingOrigin.set(opt);
+
+  // set 方法并不能让和坐标相关的矩阵变换生效，所以还需要再执行下面的方法
+  croppingOrigin.setCoords();
+}
+
+function bindFollow(croppingTarget: fabric.Object) {
+  if ((croppingTarget as any).cropping) {
+    return false;
+  }
+  const croppingOrigin = (croppingTarget as any).croppingOrigin as fabric.Object;
+
+  // 计算裁切对象当前的变换矩阵，并得到逆转变换
+  const bossTransform = croppingTarget.calcTransformMatrix();
+  const invertedBossTransform = fabric.util.invertTransform(bossTransform);
+
+  // 关键：拿到能描述 裁切对象和原图对象 关系的变换矩阵
+  // 该方法接收三个参数，前两个参数不分先后
+  const desiredTransform = fabric.util.multiplyTransformMatrices(
+    invertedBossTransform,
+    // 返回原图对象的变换矩阵
+    croppingOrigin.calcTransformMatrix()
+  );
+
+  // 将“主随关系”的变换矩阵保存在“随从”上
+  (croppingOrigin as any).relationship = desiredTransform;
 }
