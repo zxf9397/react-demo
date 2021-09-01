@@ -35,23 +35,16 @@ function setControlsActionHandler(obj: fabric.Object) {
   obj.controls.bl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
   obj.controls.ml.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingXOrSkewingY);
 }
-function wrapWithModified(handler: (target: fabric.Image, e: { angle?: number; target?: fabric.Object }) => void) {
+function wrapWithModified(handler: (target: fabric.Image, e: { target?: fabric.Object }) => void) {
   return function (e: fabric.IEvent) {
     let targets: fabric.Image[] = [];
     if (e.target?.type === 'image' && (e.target as any).croppingOrigin) {
       targets = [e.target as fabric.Image];
     } else if (e.target?.type === 'activeSelection') {
-      targets = (e.target as fabric.ActiveSelection)._objects.filter((obj) => obj.type === 'image' && (obj as any).croppingOrigin) as fabric.Image[];
+      targets = (e.target as fabric.ActiveSelection)._objects.filter((obj) => (obj as any).croppingOrigin) as fabric.Image[];
     }
     targets.forEach((target) => {
-      if ((e as any).action === 'rotate') {
-        handler(target, {
-          target: e.target,
-          angle: e.target?.type === 'image' ? target.angle : (target.angle || 0) + (e.target?.angle || 0),
-        });
-      } else {
-        handler(target, { target: e.target });
-      }
+      handler(target, e);
     });
   };
 }
@@ -109,11 +102,12 @@ export default class Tabric {
         this.confirmCropping();
       }
     });
-    ['object:modified', 'object:rotating', 'object:scaling', 'object:fliped'].forEach((event) => {
+    ['object:modified', 'object:rotating', 'object:scaling', 'object:fliped', 'selection:cleared'].forEach((event) => {
       this._canvas.on(event, wrapWithModified(updateMinions));
     });
 
     this._canvas.on('object:modified', wrapWithModified(bindFollow));
+    this._canvas.on('object:fliped', wrapWithModified(bindFollow));
   };
 
   startCropping = () => {
@@ -132,7 +126,7 @@ export default class Tabric {
 
     this.croppingOrigin
       .setControlsVisibility({
-        mtr: false,
+        // mtr: false,
         ml: false,
         mt: false,
         mr: false,
@@ -512,7 +506,6 @@ export default class Tabric {
     }
     const flipX = !activeObj.flipX;
     activeObj.set('flipX', flipX).setCoords();
-    wrapWithModified(updateMinions)({ target: activeObj } as any);
     this._canvas.fire('object:fliped', { target: activeObj });
     this._canvas.renderAll();
   };
@@ -529,7 +522,7 @@ export default class Tabric {
   };
 }
 
-function updateMinions(croppingTarget: fabric.Object) {
+function updateMinions(croppingTarget: fabric.Object, opts: any = { isFlipX: false }) {
   const croppingOrigin = (croppingTarget as any).croppingOrigin as fabric.Object;
   // 直接返回
   if ((croppingTarget as any).cropping || !(croppingOrigin as any).relationship) {
@@ -549,18 +542,29 @@ function updateMinions(croppingTarget: fabric.Object) {
   // 将包含6个数字元素的数组转换为属性的集合
   const opt = fabric.util.qrDecompose(newTransform);
 
+  const originalFlipX = croppingTarget.flipX;
+  const originalFlipY = croppingTarget.flipY;
   // 设置“随从” X/Y 轴平方向都不翻转
   croppingOrigin.set({
     flipX: false,
     flipY: false,
+    scaleX: opt.scaleX,
+    scaleY: opt.scaleY,
+    skewX: opt.skewX,
+    skewY: opt.skewY,
   });
 
+  if (originalFlipX !== croppingOrigin.flipX || originalFlipY !== croppingOrigin.flipY) {
+    croppingOrigin.flipX = originalFlipX;
+    croppingOrigin.flipY = originalFlipY;
+    opt.angle -= 180;
+  }
+  croppingOrigin.angle = opt.angle;
+
   // 设置“随从”原点的位置，这里将矩形的中心作为原点
-  croppingOrigin.setPositionByOrigin({ x: opt.translateX, y: opt.translateY } as fabric.Point, 'center', 'center');
+  croppingOrigin.setPositionByOrigin(new fabric.Point(opt.translateX, opt.translateY), 'center', 'center');
 
   // 将上面从矩阵数组转换而得到的属性集合对象作为“随从”的新配置
-  croppingOrigin.set(opt);
-
   // set 方法并不能让和坐标相关的矩阵变换生效，所以还需要再执行下面的方法
   croppingOrigin.setCoords();
 }
@@ -574,15 +578,16 @@ function bindFollow(croppingTarget: fabric.Object) {
   // 计算裁切对象当前的变换矩阵，并得到逆转变换
   const bossTransform = croppingTarget.calcTransformMatrix();
   const invertedBossTransform = fabric.util.invertTransform(bossTransform);
-
+  const originMatr = croppingOrigin.calcTransformMatrix();
   // 关键：拿到能描述 裁切对象和原图对象 关系的变换矩阵
   // 该方法接收三个参数，前两个参数不分先后
   const desiredTransform = fabric.util.multiplyTransformMatrices(
     invertedBossTransform,
     // 返回原图对象的变换矩阵
-    croppingOrigin.calcTransformMatrix()
+    originMatr
   );
 
   // 将“主随关系”的变换矩阵保存在“随从”上
   (croppingOrigin as any).relationship = desiredTransform;
+  (croppingOrigin as any).originMatr = originMatr;
 }
