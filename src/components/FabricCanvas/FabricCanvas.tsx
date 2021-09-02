@@ -25,8 +25,8 @@ export default function FabricCanvas() {
       <button onClick={tabric?.startCropping}>开始裁切</button>
       <button onClick={tabric?.cancelCropping}>取消裁切</button>
       <button onClick={tabric?.confirmCropping}>确认裁切</button>
-      <button onClick={tabric?.flipX}>水平翻转</button>
-      <button onClick={tabric?.flipY}>垂直翻转</button>
+      <button onClick={() => tabric?.flip('flipX')}>水平翻转</button>
+      <button onClick={() => tabric?.flip('flipY')}>垂直翻转</button>
       <div id="cropper"></div>
     </div>
   );
