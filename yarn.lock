@@ -288,10 +288,10 @@
     semver "^7.3.4"
     tar "^6.1.0"
 
-"@types/fabric@^4.5.1":
-  version "4.5.1"
-  resolved "https://registry.nlark.com/@types/fabric/download/@types/fabric-4.5.1.tgz#5d0cc303f0694e1f0eecc6e514f886d7111e3376"
-  integrity sha1-XQzDA/BpTh8O7MblFPiG1xEeM3Y=
+"@types/fabric@^4.5.3":
+  version "4.5.3"
+  resolved "https://registry.nlark.com/@types/fabric/download/@types/fabric-4.5.3.tgz#f4f2e1168d086a7ffe12e5cea4193d0cd6a526f7"
+  integrity sha1-9PLhFo0Ian/+EuXOpBk9DNalJvc=
 
 "@types/history@*":
   version "4.7.9"

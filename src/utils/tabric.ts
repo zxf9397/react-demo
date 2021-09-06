@@ -103,11 +103,11 @@ export default class Tabric {
         }
         setTargetScaleWidthAndHeight(this.croppingTarget, this.croppingOrigin, e.transform?.corner);
       });
-      this.croppingTarget.on('scaling', () => {
+      this.croppingTarget.on('scaling', (e) => {
         if (!this.croppingTarget || !this.croppingOrigin) {
           return;
         }
-        const opts = getTargetScaleProperties(this.croppingTarget);
+        const opts = getTargetScaleProperties(this.croppingTarget, this.croppingOrigin, e);
         this.croppingTarget.set(opts).setCoords();
         calculateCrop();
       });

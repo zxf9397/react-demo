@@ -143,3 +143,31 @@ export function symmetricalPoint(point: Point, linear: LinearFunction) {
     };
   }
 }
+
+export function pedalPoint(point: Point, linear: LinearFunction): Point {
+  if (!Number.isFinite(linear.k)) {
+    return { x: linear.reverseFunc(0), y: point.y };
+  }
+
+  if (linear.k === 0) {
+    return { x: point.x, y: linear.func(0) };
+  }
+
+  const x = (point.x + linear.k * point.y - linear.k * linear.b) / (linear.k * linear.k + 1);
+  const y = (linear.k * linear.k * point.y + linear.k * point.x + linear.b) / (linear.k * linear.k + 1);
+  return { x, y };
+}
+
+export function perpendicularLinear(point: Point, linear: LinearFunction) {
+  if (!Number.isFinite(linear.k)) {
+    return linearFunction(point, { x: linear.reverseFunc(0), y: point.y });
+  }
+
+  if (linear.k === 0) {
+    return linearFunction(point, { x: point.x, y: linear.func(0) });
+  }
+
+  const x = (point.x + linear.k * point.y - linear.k * linear.b) / (linear.k * linear.k + 1);
+  const y = (linear.k * linear.k * point.y + linear.k * point.x + linear.b) / (linear.k * linear.k + 1);
+  return linearFunction(point, { x, y });
+}

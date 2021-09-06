@@ -1,5 +1,5 @@
 import { fabric } from 'fabric';
-import { linearFunction, LinearFunction, linearFunctionMove, linearsIntersection, Point, pointToLinearDistance } from './func';
+import { linearFunction, LinearFunction, linearFunctionMove, linearsIntersection, perpendicularLinear, Point, pointToLinearDistance } from './func';
 
 type ACoords = Record<'tl' | 'tr' | 'br' | 'bl', Point>;
 
@@ -232,10 +232,61 @@ export function setTargetScaleWidthAndHeight(croppingTarget: fabric.Image, cropp
  * @param croppingTarget
  * @returns
  */
-export function getTargetScaleProperties(croppingTarget: fabric.Image) {
-  const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = croppingTarget;
+export function getTargetScaleProperties(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, e: fabric.IEvent) {
+  let { width = 0, height = 0, scaleX = 1, scaleY = 1, left = 0, top = 0 } = croppingTarget;
+  const { tl, tr, br, bl } = croppingTarget.get('aCoords') as ACoords;
+  const { tl: TL, tr: TR, br: BR, bl: BL } = croppingOrigin.aCoords as ACoords;
   const opts = (croppingTarget as any)._opts as { scaleWidth: number; scaleHeight: number };
-  return { scaleX: Math.min(scaleX, opts.scaleWidth / width), scaleY: Math.min(scaleY, opts.scaleHeight / height) };
+
+  const minScaleX = opts.scaleWidth / width;
+  const minScaleY = opts.scaleHeight / height;
+
+  switch (e.transform?.corner) {
+    case 'ml':
+    case 'bl':
+      const LeftLinear = linearFunction(BL, TL);
+      if (scaleX > minScaleX) {
+        const point = linearsIntersection(LeftLinear, linearFunction(tl, tr));
+        left = point.x;
+        top = point.y;
+      }
+      break;
+    case 'mt':
+    case 'tr':
+      const topLinear = linearFunction(TL, TR);
+      if (scaleY > minScaleY) {
+        const point = linearsIntersection(topLinear, linearFunction(bl, tl));
+        left = point.x;
+        top = point.y;
+      }
+      break;
+    case 'tl': {
+      const LeftLinear = linearFunction(BL, TL);
+      const topLinear = linearFunction(TL, TR);
+      const leftDistance = pointToLinearDistance(tl, LeftLinear);
+      const topDistance = pointToLinearDistance(tl, topLinear);
+      if (leftDistance < 0 && topDistance < 0) {
+        left = TL.x;
+        top = TL.y;
+        break;
+      }
+
+      if (scaleX > minScaleX) {
+        left = tl.x + (bl.x - BL.x);
+        top = tl.y + (BL.y - bl.y);
+        break;
+      }
+
+      if (topDistance < 0) {
+        const point = linearsIntersection(topLinear, linearFunction(bl, tl));
+        left = point.x;
+        top = point.y;
+        break;
+      }
+    }
+  }
+
+  return { scaleX: Math.min(scaleX, opts.scaleWidth / width), scaleY: Math.min(scaleY, opts.scaleHeight / height), left, top };
 }
 
 /**
