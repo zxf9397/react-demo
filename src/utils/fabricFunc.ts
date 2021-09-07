@@ -43,6 +43,10 @@ function wrapWithFireEvent(
   };
 }
 
+function toLocalPoint(target: fabric.Object, point: fabric.Point, originX: 'left' | 'right' = 'left', originY: 'top' | 'bottom' = 'top') {
+  return target.toLocalPoint(point, originX, originY);
+}
+
 export function setControlsActionHandler(obj: fabric.Object) {
   // 解决缩放时的抖动
   obj.controls.tl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
@@ -134,10 +138,6 @@ export function bindFollow(croppingTarget: fabric.Object) {
   (croppingOrigin as any).relationship = desiredTransform;
 }
 
-function toLocalPoint(target: fabric.Object, point: fabric.Point, originX: 'left' | 'right' = 'left', originY: 'top' | 'bottom' = 'top') {
-  return target.toLocalPoint(point, originX, originY);
-}
-
 export function setCroppingControls(croppingTarget: fabric.Image, croppingOrigin: fabric.Image) {
   croppingOrigin
     .setControlsVisibility({
@@ -157,10 +157,10 @@ export function setCroppingControls(croppingTarget: fabric.Image, croppingOrigin
   croppingTarget
     .setControlsVisibility({
       mtr: false,
-      ml: true,
-      mt: true,
-      mr: true,
-      mb: true,
+      ml: false,
+      mt: false,
+      mr: false,
+      mb: false,
     })
     .set({
       lockMovementX: true,
@@ -173,13 +173,21 @@ export function setCroppingControls(croppingTarget: fabric.Image, croppingOrigin
 }
 
 export function setUnCroppingControls(croppingTarget: fabric.Image) {
-  croppingTarget.setControlVisible('mtr', true).set({
-    lockMovementX: false,
-    lockMovementY: false,
-    lockSkewingX: false,
-    lockSkewingY: false,
-    lockScalingFlip: false,
-  });
+  croppingTarget
+    .setControlsVisibility({
+      mtr: true,
+      ml: true,
+      mt: true,
+      mr: true,
+      mb: true,
+    })
+    .set({
+      lockMovementX: false,
+      lockMovementY: false,
+      lockSkewingX: false,
+      lockSkewingY: false,
+      lockScalingFlip: false,
+    });
   (croppingTarget as any).cropping = false;
 }
 
@@ -189,7 +197,7 @@ export function setUnCroppingControls(croppingTarget: fabric.Image) {
  * @param croppingOrigin
  * @param corner
  */
-export function setTargetScaleWidthAndHeight(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, corner: string | undefined) {
+export function setTargetScaleWidthAndHeight(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, corner?: string) {
   const { width = 0, height = 0 } = croppingTarget;
   const { scaleX: imageScaleX = 1, scaleY: imageScaleY = 1 } = croppingOrigin;
   const { tl, tr, br, bl } = croppingTarget.get('aCoords') as ACoords;
@@ -206,8 +214,7 @@ export function setTargetScaleWidthAndHeight(croppingTarget: fabric.Image, cropp
   const bottomDistance = Math.abs(pointToLinearDistance(BR, bottomLinear));
 
   (croppingTarget as any)._opts = { scaleWidth: Infinity, scaleHeight: Infinity, ...(croppingTarget as any)._opts };
-  const opts = (croppingTarget as any)._opts as { scaleWidth: number; scaleHeight: number; croods: ACoords };
-  opts.croods = { tl, tr, br, bl };
+  const opts = (croppingTarget as any)._opts as { scaleWidth: number; scaleHeight: number };
 
   switch (corner) {
     case 'ml':
@@ -241,6 +248,16 @@ export function setTargetScaleWidthAndHeight(croppingTarget: fabric.Image, cropp
   }
 }
 
+export function setTargetScaleCroods(croppingTarget: fabric.Image, corner?: string) {
+  if (!corner) {
+    return;
+  }
+  const { tl, tr, br, bl } = croppingTarget.get('aCoords') as ACoords;
+  (croppingTarget as any)._opts = { ...(croppingTarget as any)._opts };
+  const opts = (croppingTarget as any)._opts as { croods: ACoords };
+  opts.croods = { tl, tr, br, bl };
+}
+
 /**
  * calculates the current croods of the cropping target
  * @param croppingTarget
@@ -256,7 +273,7 @@ export function setTargetScaleWidthAndHeight(croppingTarget: fabric.Image, cropp
 } */
 export function getTargetScaleProperties(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, e: fabric.IEvent) {
   let { width = 0, height = 0, left = 0, top = 0 } = croppingTarget;
-  const { tl, tr, br, bl } = croppingTarget.get('aCoords') as ACoords;
+  const { tl, tr, bl } = croppingTarget.get('aCoords') as ACoords;
   const { tl: TL, tr: TR, br: BR, bl: BL } = croppingOrigin.aCoords as ACoords;
   const opts = (croppingTarget as any)._opts as { scaleWidth: number; scaleHeight: number; croods: ACoords };
 

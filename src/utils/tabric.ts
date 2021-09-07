@@ -6,7 +6,6 @@ import {
   setOriginMoveLinearsAndCroods,
   getOriginMoveProperties,
   getOriginScaleProperties,
-  setTargetScaleWidthAndHeight,
   setOriginMinScale,
   setControlsActionHandler,
   updateMinions,
@@ -14,6 +13,7 @@ import {
   getTargetScaleProperties,
   setCroppingControls,
   setUnCroppingControls,
+  setTargetScaleCroods,
 } from './fabricFunc';
 
 type ACoords = Record<'tl' | 'tr' | 'br' | 'bl', Point>;
@@ -101,7 +101,7 @@ export default class Tabric {
         if (!this.croppingTarget || !this.croppingOrigin) {
           return;
         }
-        setTargetScaleWidthAndHeight(this.croppingTarget, this.croppingOrigin, e.transform?.corner);
+        setTargetScaleCroods(this.croppingTarget, e.transform?.corner);
       });
       this.croppingTarget.on('scaling', (e) => {
         if (!this.croppingTarget || !this.croppingOrigin) {
