@@ -518,25 +518,39 @@ export function setOriginMinScale(croppingTarget: fabric.Image, croppingOrigin: 
  * @param croppingOrigin
  * @returns
  */
-export function getOriginScaleProperties(croppingOrigin: fabric.Image) {
+export function getOriginScaleProperties(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, e: fabric.IEvent) {
   let scaleX = croppingOrigin.scaleX || 1;
   let scaleY = croppingOrigin.scaleY || 1;
 
+  const { tl, tr, bl } = croppingTarget.aCoords as ACoords;
+  const { tl: TL, tr: TR, bl: BL } = croppingOrigin.aCoords as ACoords;
+
   (croppingOrigin as any)._opts = { lastScaleX: 1, lastScaleY: 1, ...(croppingOrigin as any)?._opts };
-  const opts = (croppingOrigin as any)._opts as { lastScaleX: number; lastScaleY: number; minScaleX: number; minScaleY: number };
+  const opts = (croppingOrigin as any)._opts as {
+    xl: Point;
+    yl: Point;
+    lastScaleX: number;
+    lastScaleY: number;
+    minScaleX: number;
+    minScaleY: number;
+  };
 
   if (scaleX <= opts.minScaleX) {
     scaleX = opts.minScaleX;
     scaleY = opts.lastScaleY;
+    croppingOrigin.setPositionByOrigin(new fabric.Point(opts.xl.x, opts.xl.y), 'left', 'top');
   } else {
     opts.lastScaleY = scaleY;
+    opts.xl = linearsIntersection(linearFunction(bl, tl), linearFunction(TL, TR));
   }
 
   if (scaleY <= opts.minScaleY) {
     scaleY = opts.minScaleY;
     scaleX = opts.lastScaleX;
+    croppingOrigin.setPositionByOrigin(new fabric.Point(opts.yl.x, opts.yl.y), 'left', 'top');
   } else {
     opts.lastScaleX = scaleX;
+    opts.yl = linearsIntersection(linearFunction(tl, tr), linearFunction(BL, TL));
   }
 
   return { scaleX, scaleY };

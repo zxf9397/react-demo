@@ -142,11 +142,11 @@ export default class Tabric {
         // moving
         setOriginMoveLinearsAndCroods(this.croppingTarget, this.croppingOrigin, linears);
       });
-      this.croppingOrigin.on('scaling', () => {
-        if (!this.croppingOrigin) {
+      this.croppingOrigin.on('scaling', (e) => {
+        if (!this.croppingTarget || !this.croppingOrigin) {
           return;
         }
-        const opts = getOriginScaleProperties(this.croppingOrigin);
+        const opts = getOriginScaleProperties(this.croppingTarget, this.croppingOrigin, e);
         this.croppingOrigin.set(opts).setCoords();
         calculateCrop();
       });
