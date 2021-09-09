@@ -522,13 +522,10 @@ export function getOriginScaleProperties(croppingTarget: fabric.Image, croppingO
   let scaleX = croppingOrigin.scaleX || 1;
   let scaleY = croppingOrigin.scaleY || 1;
 
-  const { tl, tr, bl } = croppingTarget.aCoords as ACoords;
-  const { tl: TL, tr: TR, bl: BL } = croppingOrigin.aCoords as ACoords;
-
   (croppingOrigin as any)._opts = { lastScaleX: 1, lastScaleY: 1, ...(croppingOrigin as any)?._opts };
   const opts = (croppingOrigin as any)._opts as {
-    xl: Point;
-    yl: Point;
+    xl?: Point;
+    yl?: Point;
     lastScaleX: number;
     lastScaleY: number;
     minScaleX: number;
@@ -538,22 +535,51 @@ export function getOriginScaleProperties(croppingTarget: fabric.Image, croppingO
   if (scaleX <= opts.minScaleX) {
     scaleX = opts.minScaleX;
     scaleY = opts.lastScaleY;
-    croppingOrigin.setPositionByOrigin(new fabric.Point(opts.xl.x, opts.xl.y), 'left', 'top');
+    setOriginScalePosition(croppingOrigin, e, opts.xl);
   } else {
     opts.lastScaleY = scaleY;
-    opts.xl = linearsIntersection(linearFunction(bl, tl), linearFunction(TL, TR));
+    const xl = getOriginScalePosition(croppingTarget, croppingOrigin, e, 'x');
+    xl && (opts.xl = xl);
   }
 
   if (scaleY <= opts.minScaleY) {
     scaleY = opts.minScaleY;
     scaleX = opts.lastScaleX;
-    croppingOrigin.setPositionByOrigin(new fabric.Point(opts.yl.x, opts.yl.y), 'left', 'top');
+    setOriginScalePosition(croppingOrigin, e, opts.yl);
   } else {
     opts.lastScaleX = scaleX;
-    opts.yl = linearsIntersection(linearFunction(tl, tr), linearFunction(BL, TL));
+    const yl = getOriginScalePosition(croppingTarget, croppingOrigin, e, 'y');
+    yl && (opts.yl = yl);
   }
 
   return { scaleX, scaleY };
+}
+
+function getOriginScalePosition(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, e: fabric.IEvent, by: 'x' | 'y') {
+  const { tl, tr, bl } = croppingTarget.aCoords as ACoords;
+  const { tl: TL, tr: TR, bl: BL } = croppingOrigin.aCoords as ACoords;
+
+  switch (e.transform?.corner) {
+    case 'tl':
+      return by === 'x'
+        ? linearsIntersection(linearFunction(bl, tl), linearFunction(TL, TR))
+        : linearsIntersection(linearFunction(tl, tr), linearFunction(BL, TL));
+    case 'tr':
+      return by === 'x'
+        ? linearsIntersection(linearFunction(BL, TL), linearFunction(TL, TR))
+        : linearsIntersection(linearFunction(BL, TL), linearFunction(tl, tr));
+    case 'bl':
+      return by === 'x'
+        ? linearsIntersection(linearFunction(bl, tl), linearFunction(TL, TR))
+        : linearsIntersection(linearFunction(BL, TL), linearFunction(TL, TR));
+  }
+}
+
+function setOriginScalePosition(croppingOrigin: fabric.Image, e: fabric.IEvent, point?: Point) {
+  if (!point || !e.transform?.corner) {
+    return;
+  }
+  ['tl', 'tr', 'bl'].includes(e.transform.corner) && croppingOrigin.setPositionByOrigin(new fabric.Point(point.x, point.y), 'left', 'top');
 }
 
 /**
