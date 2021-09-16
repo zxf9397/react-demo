@@ -629,8 +629,8 @@ export function setOriginMoveRectRange(croppingTarget: fabric.Image, croppingOri
     moveRegion: new fabric.Rect({
       left: coords.tl.x,
       top: coords.tl.y,
-      width: (croppingOrigin.width || 0) - (croppingTarget.width || 0),
-      height: (croppingOrigin.height || 0) - (croppingTarget.height || 0),
+      width: croppingOrigin.getScaledWidth() - croppingTarget.getScaledWidth(),
+      height: croppingOrigin.getScaledHeight() - croppingTarget.getScaledHeight(),
       angle,
     }),
     pedals: {
