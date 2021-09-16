@@ -3,8 +3,6 @@ import { linearFunction, Point } from './func';
 import {
   bindFollow,
   getTargetCroppedProperties,
-  setOriginMoveLinearsAndCroods,
-  getOriginMoveProperties,
   getOriginScaleProperties,
   setOriginMinScale,
   setControlsActionHandler,
@@ -14,6 +12,8 @@ import {
   setCroppingControls,
   setUnCroppingControls,
   setTargetScaleCroods,
+  setOriginMoveRectRange,
+  getOriginMoveProperty,
 } from './fabricFunc';
 
 type ACoords = Record<'tl' | 'tr' | 'br' | 'bl', Point>;
@@ -51,15 +51,26 @@ export default class Tabric {
   // the original object for cropping
   croppingOrigin: CroppingObject = null;
   croppingOriginBackup: CroppingObject = null;
+  mouseDown = false;
 
   // initialize cropping event
   _initializeCropping = () => {
     this._canvas.on('mouse:down', (e) => {
-      if (!this.croppingTarget || e.target === this.croppingTarget || e.target === this.croppingOrigin) {
+      if (!this.croppingTarget || !this.croppingOrigin) {
+        return;
+      }
+      if (!e.transform?.corner) {
+        setOriginMoveRectRange(this.croppingTarget, this.croppingOrigin, e);
+        this.mouseDown = true;
+      }
+      if (e.target === this.croppingTarget || e.target === this.croppingOrigin) {
         return;
       }
       // 裁切中，点击其他区域默认触发裁切事件
       this.confirmCropping();
+    });
+    this._canvas.on('mouse:up', (e) => {
+      this.mouseDown = false;
     });
     this._canvas.on('mouse:dblclick', (e) => {
       if (!this.croppingTarget) {
@@ -74,6 +85,14 @@ export default class Tabric {
     });
     ['object:modified', 'object:rotating', 'object:scaling', 'object:fliped', 'selection:cleared'].forEach((event) => {
       this._canvas.on(event, wrapWithModified(updateMinions));
+    });
+    this._canvas.on('mouse:move', (e) => {
+      if (!this.croppingTarget || !this.croppingOrigin || !this.mouseDown) {
+        return;
+      }
+      this.croppingOrigin.set(getOriginMoveProperty(this.croppingTarget, this.croppingOrigin, e)).setCoords();
+      this.croppingTarget.set(getTargetCroppedProperties(this.croppingTarget, this.croppingOrigin)).setCoords();
+      this._canvas.renderAll();
     });
   };
 
@@ -140,7 +159,7 @@ export default class Tabric {
           return;
         }
         // moving
-        setOriginMoveLinearsAndCroods(this.croppingTarget, this.croppingOrigin, linears);
+        // setOriginMoveLinearsAndCroods(this.croppingTarget, this.croppingOrigin, linears);
       });
       this.croppingOrigin.on('scaling', (e) => {
         if (!this.croppingTarget || !this.croppingOrigin) {
@@ -150,14 +169,14 @@ export default class Tabric {
         this.croppingOrigin.set(opts).setCoords();
         calculateCrop();
       });
-      this.croppingOrigin.on('moving', () => {
-        if (!this.croppingOrigin) {
-          return;
-        }
-        const opts = getOriginMoveProperties(this.croppingOrigin);
-        this.croppingOrigin.set(opts).setCoords();
-        calculateCrop();
-      });
+      // this.croppingOrigin.on('moving', () => {
+      //   if (!this.croppingOrigin) {
+      //     return;
+      //   }
+      //   const opts = getOriginMoveProperties(this.croppingOrigin);
+      //   this.croppingOrigin.set(opts).setCoords();
+      //   calculateCrop();
+      // });
       this.croppingOrigin.on('modified', calculateCrop);
     }
 

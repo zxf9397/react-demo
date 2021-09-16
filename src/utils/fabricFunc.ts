@@ -19,6 +19,30 @@ export interface CoordsLinears {
   bottom: LinearFunction;
 }
 
+interface TargetOptions {
+  scaleWidth: number;
+  scaleHeight: number;
+  croods: ACoords;
+}
+interface OriginOptions {
+  // starting postion of cropping origin
+  position: { x: number; y: number };
+  // starting mouse pointer
+  pointer: fabric.Point;
+  // valid range of mouse movement
+  moveRegion: fabric.Rect;
+  // the pedal pointer to top/left linear
+  pedals: { top: Point; left: Point };
+  // valid range of cropping origin movement
+  linears: CoordsLinears;
+  minScaleX: number;
+  minScaleY: number;
+  xl?: Point;
+  yl?: Point;
+  lastScaleX: number;
+  lastScaleY: number;
+}
+
 function commonEventInfo(eventData: MouseEvent, transform: fabric.Transform, x: number, y: number) {
   return {
     e: eventData,
@@ -148,6 +172,8 @@ export function setCroppingControls(croppingTarget: fabric.Image, croppingOrigin
       mb: false,
     })
     .set({
+      lockMovementX: true,
+      lockMovementY: true,
       lockSkewingX: true,
       lockSkewingY: true,
       lockScalingFlip: true,
@@ -214,7 +240,7 @@ export function setTargetScaleWidthAndHeight(croppingTarget: fabric.Image, cropp
   const bottomDistance = Math.abs(pointToLinearDistance(BR, bottomLinear));
 
   (croppingTarget as any)._opts = { scaleWidth: Infinity, scaleHeight: Infinity, ...(croppingTarget as any)._opts };
-  const opts = (croppingTarget as any)._opts as { scaleWidth: number; scaleHeight: number };
+  const opts = (croppingTarget as any)._opts as TargetOptions;
 
   switch (corner) {
     case 'ml':
@@ -254,7 +280,7 @@ export function setTargetScaleCroods(croppingTarget: fabric.Image, corner?: stri
   }
   const { tl, tr, br, bl } = croppingTarget.get('aCoords') as ACoords;
   (croppingTarget as any)._opts = { ...(croppingTarget as any)._opts };
-  const opts = (croppingTarget as any)._opts as { croods: ACoords };
+  const opts = (croppingTarget as any)._opts as TargetOptions;
   opts.croods = { tl, tr, br, bl };
 }
 
@@ -265,17 +291,11 @@ export function setTargetScaleCroods(croppingTarget: fabric.Image, corner?: stri
  * @param e
  * @returns
  */
-/*  export function getTargetScaleProperties(croppingTarget: fabric.Image) {
-  // lower fabric version 4.3.1
-  const { width = 0, height = 0, scaleX = 1, scaleY = 1 } = croppingTarget;
-  const opts = (croppingTarget as any)._opts as { scaleWidth: number; scaleHeight: number };
-  return { scaleX: Math.min(scaleX, opts.scaleWidth / width), scaleY: Math.min(scaleY, opts.scaleHeight / height) };
-} */
 export function getTargetScaleProperties(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, e: fabric.IEvent) {
   let { width = 0, height = 0, left = 0, top = 0 } = croppingTarget;
   const { tl, tr, bl } = croppingTarget.get('aCoords') as ACoords;
   const { tl: TL, tr: TR, br: BR, bl: BL } = croppingOrigin.aCoords as ACoords;
-  const opts = (croppingTarget as any)._opts as { scaleWidth: number; scaleHeight: number; croods: ACoords };
+  const opts = (croppingTarget as any)._opts as TargetOptions;
 
   const pointer = e.pointer as fabric.Point;
 
@@ -473,7 +493,7 @@ export function setOriginMinScale(croppingTarget: fabric.Image, croppingOrigin: 
   const { width = 0, height = 0 } = croppingOrigin;
 
   (croppingOrigin as any)._opts = { minScaleX: 1, minScaleY: 1, ...(croppingOrigin as any)._opts };
-  const opts = (croppingOrigin as any)._opts as { minScaleX: number; minScaleY: number };
+  const opts = (croppingOrigin as any)._opts as OriginOptions;
 
   let scaleX: number = opts.minScaleX;
   let scaleY: number = opts.minScaleY;
@@ -523,14 +543,7 @@ export function getOriginScaleProperties(croppingTarget: fabric.Image, croppingO
   let scaleY = croppingOrigin.scaleY || 1;
 
   (croppingOrigin as any)._opts = { lastScaleX: 1, lastScaleY: 1, ...(croppingOrigin as any)?._opts };
-  const opts = (croppingOrigin as any)._opts as {
-    xl?: Point;
-    yl?: Point;
-    lastScaleX: number;
-    lastScaleY: number;
-    minScaleX: number;
-    minScaleY: number;
-  };
+  const opts = (croppingOrigin as any)._opts as OriginOptions;
 
   if (scaleX <= opts.minScaleX) {
     scaleX = opts.minScaleX;
@@ -582,115 +595,103 @@ function setOriginScalePosition(croppingOrigin: fabric.Image, e: fabric.IEvent, 
   ['tl', 'tr', 'bl'].includes(e.transform.corner) && croppingOrigin.setPositionByOrigin(new fabric.Point(point.x, point.y), 'left', 'top');
 }
 
-/**
- * calculates the moving area of the cropping origin
- * @param croppingTarget
- * @param croppingOrigin
- * @param linears
- */
-export function setOriginMoveLinearsAndCroods(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, linears: CoordsLinears) {
-  const { angle = 0 } = croppingTarget;
+export function setOriginMoveRectRange(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, e: fabric.IEvent) {
+  const { left = 0, top = 0, angle } = croppingOrigin;
+  const pointer = e.pointer as fabric.Point;
   const { tl, tr, br, bl } = croppingTarget.aCoords as ACoords;
-  const { br: BR } = croppingOrigin.aCoords as ACoords;
+  const { tl: TL, tr: TR, br: BR, bl: BL } = croppingOrigin.aCoords as ACoords;
+  const coords = {
+    tl: { x: pointer.x - (BR.x - br.x), y: pointer.y - (BR.y - br.y) },
+  };
+
+  const topPedal = pedalPoint(pointer, linearFunction(TL, TR));
+  const leftPedal = pedalPoint(pointer, linearFunction(BL, TL));
 
   const leftLinear = linearFunction(bl, tl);
   const topLinear = linearFunction(tl, tr);
   const rightLinear = linearFunction(tr, br);
   const bottomLinear = linearFunction(br, bl);
 
-  const vLinear = linearFunctionMove(linears.left, Number.isFinite(linears.left.k) ? rightLinear.b - linears.right.b : br.x - BR.x);
-  const hLinear = linearFunctionMove(linears.top, Number.isFinite(linears.top.k) ? bottomLinear.b - linears.bottom.b : br.x - BR.x);
-  const cAngle = (angle % 360) + (angle < 0 ? 360 : 0);
-
-  let moveLinears: CoordsLinears;
-
-  if (cAngle < 90) {
-    moveLinears = {
-      left: vLinear as any,
-      top: hLinear as any,
-      right: leftLinear,
-      bottom: topLinear,
-    };
-  } else if (cAngle < 180) {
-    moveLinears = {
-      left: topLinear,
-      top: vLinear as any,
-      right: hLinear as any,
-      bottom: leftLinear,
-    };
-  } else if (cAngle < 270) {
-    moveLinears = {
-      left: leftLinear,
-      top: topLinear,
-      right: vLinear as any,
-      bottom: hLinear as any,
-    };
-  } else {
-    moveLinears = {
-      left: hLinear as any,
-      top: leftLinear,
-      right: topLinear,
-      bottom: vLinear as any,
-    };
-  }
-  const coords = {
-    tl: linearsIntersection(moveLinears.top, moveLinears.left),
-    tr: linearsIntersection(moveLinears.top, moveLinears.right),
-    br: linearsIntersection(moveLinears.bottom, moveLinears.right),
-    bl: linearsIntersection(moveLinears.bottom, moveLinears.left),
+  const linears = {
+    left: linearFunction(BL, TL),
+    top: linearFunction(TL, TR),
+    right: linearFunction(TR, BR),
+    bottom: linearFunction(BR, BL),
   };
 
-  (croppingOrigin as any)._opts = { moveLinears: {}, moveCoords: {}, ...(croppingOrigin as any)._opts };
-  const opts = (croppingOrigin as any)._opts as { moveLinears: CoordsLinears; moveCoords: ACoords };
-  opts.moveLinears = moveLinears;
-  opts.moveCoords = coords as any;
+  let opts: OriginOptions = {
+    ...((croppingOrigin as any)._opts as OriginOptions),
+    position: {
+      x: left,
+      y: top,
+    },
+    pointer,
+    moveRegion: new fabric.Rect({
+      left: coords.tl.x,
+      top: coords.tl.y,
+      width: (croppingOrigin.width || 0) - (croppingTarget.width || 0),
+      height: (croppingOrigin.height || 0) - (croppingTarget.height || 0),
+      angle,
+    }),
+    pedals: {
+      top: { x: topPedal.x - pointer.x, y: topPedal.y - pointer.y },
+      left: { x: leftPedal.x - pointer.x, y: leftPedal.y - pointer.y },
+    },
+    linears: {
+      left: linearFunctionMove(linears.left, Number.isFinite(linears.left.k) ? rightLinear.b - linears.right.b : br.x - BR.x) as any,
+      top: linearFunctionMove(linears.top, Number.isFinite(linears.top.k) ? bottomLinear.b - linears.bottom.b : br.x - BR.x) as any,
+      right: leftLinear,
+      bottom: topLinear,
+    },
+  };
+  (croppingOrigin as any)._opts = opts;
 }
 
-/**
- * calculates the position of the cropping origin
- * @param croppingOrigin
- * @returns
- */
-export function getOriginMoveProperties(croppingOrigin: fabric.Image) {
-  const { left = 0, top = 0 } = croppingOrigin;
-  const { tl: TL } = croppingOrigin.aCoords as ACoords;
+export function getOriginMoveProperty(croppingTarget: fabric.Image, croppingOrigin: fabric.Image, e: fabric.IEvent) {
+  const { tl, tr, bl } = croppingTarget.aCoords as ACoords;
+  const pointer = e.pointer as fabric.Point;
+  const opts = (croppingOrigin as any)._opts as OriginOptions;
 
-  let l = left;
-  let t = top;
+  const local = opts.moveRegion.toLocalPoint(pointer, 'left', 'top');
+  const { width = 0, height = 0 } = opts.moveRegion;
 
-  const opts = (croppingOrigin as any)._opts as { moveLinears: CoordsLinears; moveCoords: ACoords };
-
-  const minL = opts.moveLinears.left.reverseFunc(TL.y);
-  const maxL = opts.moveLinears.right.reverseFunc(TL.y);
-  const minT = opts.moveLinears.top.func(TL.x);
-  const maxT = opts.moveLinears.bottom.func(TL.x);
-
-  if (left < minL) {
-    if (top < minT) {
-      l = opts.moveCoords.tl.x;
-      t = opts.moveCoords.tl.y;
-    } else if (top > maxT) {
-      l = opts.moveCoords.bl.x;
-      t = opts.moveCoords.bl.y;
-    } else {
-      l = minL;
-    }
-  } else if (left > maxL) {
-    if (top > maxT) {
-      l = opts.moveCoords.br.x;
-      t = opts.moveCoords.br.y;
-    } else if (top < minT) {
-      l = opts.moveCoords.tr.x;
-      t = opts.moveCoords.tr.y;
-    } else {
-      l = maxL;
-    }
-  } else {
-    if (top < minT) {
-      t = minT;
-    } else if (top > maxT) {
-      t = maxT;
-    }
+  if (local.x <= 0 && local.y <= 0) {
+    // cross the right bottom border
+    const ins = linearsIntersection(opts.linears.left, opts.linears.top);
+    return { left: ins.x, top: ins.y };
+  } else if (local.x <= 0 && local.y >= height) {
+    // cross the right top border
+    const ins = linearsIntersection(opts.linears.left, opts.linears.bottom);
+    return { left: ins.x, top: ins.y };
+  } else if (local.x >= width && local.y <= 0) {
+    // cross the left bottom border
+    const ins = linearsIntersection(opts.linears.right, opts.linears.top);
+    return { left: ins.x, top: ins.y };
+  } else if (local.x >= width && local.y >= height) {
+    // cross the left top border
+    const ins = linearsIntersection(opts.linears.right, opts.linears.bottom);
+    return { left: ins.x, top: ins.y };
+  } else if (local.x <= 0) {
+    // cross the right border
+    const linear = opts.linears.left;
+    const ins = linearsIntersection(linear, perpendicularLinear({ x: pointer.x + opts.pedals.top.x, y: pointer.y + opts.pedals.top.y }, linear));
+    return { left: ins.x, top: ins.y };
+  } else if (local.x >= width) {
+    // cross the left border
+    const linear = linearFunction(bl, tl);
+    const ins = linearsIntersection(linear, perpendicularLinear({ x: pointer.x + opts.pedals.top.x, y: pointer.y + opts.pedals.top.y }, linear));
+    return { left: ins.x, top: ins.y };
+  } else if (local.y <= 0) {
+    // cross the bottom border
+    const linear = opts.linears.top;
+    const ins = linearsIntersection(linear, perpendicularLinear({ x: pointer.x + opts.pedals.left.x, y: pointer.y + opts.pedals.left.y }, linear));
+    return { left: ins.x, top: ins.y };
+  } else if (local.y >= height) {
+    // cross the top border
+    const linear = linearFunction(tl, tr);
+    const ins = linearsIntersection(linear, perpendicularLinear({ x: pointer.x + opts.pedals.left.x, y: pointer.y + opts.pedals.left.y }, linear));
+    return { left: ins.x, top: ins.y };
   }
-  return { left: l, top: t };
+
+  return { left: opts.position.x + (pointer.x - opts.pointer.x), top: opts.position.y + (pointer.y - opts.pointer.y) };
 }
