@@ -120,7 +120,9 @@ export default class Tabric {
         if (!this.croppingTarget || !this.croppingOrigin) {
           return;
         }
-        setTargetScaleCroods(this.croppingTarget, e.transform?.corner);
+        if (e.transform?.corner) {
+          setTargetScaleCroods(this.croppingTarget);
+        }
       });
       this.croppingTarget.on('scaling', (e) => {
         if (!this.croppingTarget || !this.croppingOrigin) {
@@ -144,22 +146,11 @@ export default class Tabric {
         if (!this.croppingTarget || !this.croppingOrigin) {
           return;
         }
-        const { tl: TL, tr: TR, br: BR, bl: BL } = this.croppingOrigin.get('aCoords') as ACoords;
-
-        const linears = {
-          left: linearFunction(BL, TL),
-          top: linearFunction(TL, TR),
-          right: linearFunction(TR, BR),
-          bottom: linearFunction(BR, BL),
-        };
-
         // scaling
         if (e.transform?.corner) {
-          setOriginMinScale(this.croppingTarget, this.croppingOrigin, linears, e.transform.corner);
+          setOriginMinScale(this.croppingTarget, this.croppingOrigin, e.transform.corner);
           return;
         }
-        // moving
-        // setOriginMoveLinearsAndCroods(this.croppingTarget, this.croppingOrigin, linears);
       });
       this.croppingOrigin.on('scaling', (e) => {
         if (!this.croppingTarget || !this.croppingOrigin) {
@@ -169,14 +160,6 @@ export default class Tabric {
         this.croppingOrigin.set(opts).setCoords();
         calculateCrop();
       });
-      // this.croppingOrigin.on('moving', () => {
-      //   if (!this.croppingOrigin) {
-      //     return;
-      //   }
-      //   const opts = getOriginMoveProperties(this.croppingOrigin);
-      //   this.croppingOrigin.set(opts).setCoords();
-      //   calculateCrop();
-      // });
       this.croppingOrigin.on('modified', calculateCrop);
     }
 
