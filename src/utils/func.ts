@@ -33,10 +33,12 @@ export function linearsIntersection(linear1: LinearFunction, linear2: LinearFunc
     return { x: Infinity, y: Infinity };
   }
   if (!Number.isFinite(linear1.k)) {
-    return { x: linear1.reverseFunc(0), y: linear2.func(0) };
+    const x = linear1.reverseFunc(0);
+    return { x, y: linear2.func(x) };
   }
   if (!Number.isFinite(linear2.k)) {
-    return { x: linear2.reverseFunc(0), y: linear1.func(0) };
+    const x = linear2.reverseFunc(0);
+    return { x, y: linear1.func(x) };
   }
   const x = (linear2.b - linear1.b) / (linear1.k - linear2.k);
   return {

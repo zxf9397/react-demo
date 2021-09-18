@@ -37,10 +37,8 @@ interface OriginOptions {
   linears: CoordsLinears;
   minScaleX: number;
   minScaleY: number;
-  xl?: Point;
-  yl?: Point;
-  lastScaleX: number;
-  lastScaleY: number;
+  diagonal: [LinearFunction, LinearFunction];
+  radio: number;
 }
 
 function commonEventInfo(eventData: MouseEvent, transform: fabric.Transform, x: number, y: number) {
@@ -235,7 +233,6 @@ export function setTargetScaleCroods(target: fabric.Image) {
  * @returns
  */
 export function getTargetScaleProperties(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent) {
-  if (!e.transform?.corner) return;
   let { width = 0, height = 0, left = 0, top = 0 } = target;
   const { tl, tr, bl } = target.get('aCoords') as ACoords;
   const { tl: TL, tr: TR, br: BR, bl: BL } = origin.aCoords as ACoords;
@@ -476,12 +473,15 @@ export function getTargetCroppedProperties(target: fabric.Image, origin: fabric.
  * @param corner
  */
 export function setOriginMinScale(target: fabric.Image, origin: fabric.Image, corner: string) {
+  const { tl: TL, tr: TR, br: BR, bl: BL } = origin.aCoords as ACoords;
   const { width = 0, height = 0 } = origin;
   const min = getMinScaleWidthHeight(target, origin, corner);
   const opts: OriginOptions = {
     ...((origin as any)._opts as OriginOptions),
     minScaleX: Math.abs(min.x) / width,
     minScaleY: Math.abs(min.y) / height,
+    diagonal: [linearFunction(TL, BR), linearFunction(TR, BL)],
+    radio: width / height,
   };
   (origin as any)._opts = opts;
 }
@@ -513,31 +513,74 @@ function getMinScaleWidthHeight(target: fabric.Object, origin: fabric.Object, co
  * @param e
  * @returns
  */
-export function getOriginScaleProperties(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent) {
+export function getOriginScaleProperties(target: fabric.Image, origin: fabric.Image, corner: string) {
   let scaleX = origin.scaleX || 1;
   let scaleY = origin.scaleY || 1;
 
   (origin as any)._opts = { lastScaleX: 1, lastScaleY: 1, ...(origin as any)?._opts };
   const opts = (origin as any)._opts as OriginOptions;
+  const { tl, tr, br, bl } = target.aCoords as ACoords;
+  const { tl: TL, tr: TR, bl: BL } = origin.aCoords as ACoords;
 
   if (scaleX <= opts.minScaleX) {
+    switch (corner) {
+      case 'tl': {
+        const p = linearsIntersection(opts.diagonal[0], linearFunction(bl, tl));
+        setOriginScalePosition(origin, corner, p);
+        break;
+      }
+      case 'tr': {
+        const p1 = linearsIntersection(opts.diagonal[1], linearFunction(tr, br));
+        const p = pedalPoint(p1, linearFunction(BL, TL));
+        console.log(p);
+        setOriginScalePosition(origin, corner, p);
+        break;
+      }
+      case 'br': {
+        const p1 = linearsIntersection(opts.diagonal[0], linearFunction(tr, br));
+        const p = pedalPoint(p1, linearFunction(BL, TL));
+        setOriginScalePosition(origin, corner, p);
+        break;
+      }
+      case 'bl': {
+        const p1 = linearsIntersection(opts.diagonal[1], linearFunction(bl, tl));
+        const p = pedalPoint(p1, linearFunction(TL, TR));
+        setOriginScalePosition(origin, corner, p);
+        break;
+      }
+    }
     scaleX = opts.minScaleX;
-    scaleY = opts.lastScaleY;
-    setOriginScalePosition(origin, e, opts.xl);
-  } else {
-    opts.lastScaleY = scaleY;
-    const xl = getOriginScalePosition(target, origin, e, 'x');
-    xl && (opts.xl = xl);
+    scaleY = opts.minScaleX * opts.radio;
   }
 
   if (scaleY <= opts.minScaleY) {
+    switch (corner) {
+      case 'tl': {
+        const p = linearsIntersection(opts.diagonal[0], linearFunction(tl, tr));
+        setOriginScalePosition(origin, corner, p);
+        break;
+      }
+      case 'tr': {
+        const p1 = linearsIntersection(opts.diagonal[1], linearFunction(tl, tr));
+        const p = pedalPoint(p1, linearFunction(BL, TL));
+        setOriginScalePosition(origin, corner, p);
+        break;
+      }
+      case 'br': {
+        const p1 = linearsIntersection(opts.diagonal[0], linearFunction(tl, tr));
+        const p = pedalPoint(p1, linearFunction(BL, TL));
+        setOriginScalePosition(origin, corner, p);
+        break;
+      }
+      case 'bl': {
+        const p1 = linearsIntersection(opts.diagonal[1], linearFunction(bl, br));
+        const p = pedalPoint(p1, linearFunction(TL, TR));
+        setOriginScalePosition(origin, corner, p);
+        break;
+      }
+    }
     scaleY = opts.minScaleY;
-    scaleX = opts.lastScaleX;
-    setOriginScalePosition(origin, e, opts.yl);
-  } else {
-    opts.lastScaleX = scaleX;
-    const yl = getOriginScalePosition(target, origin, e, 'y');
-    yl && (opts.yl = yl);
+    scaleX = opts.minScaleY / opts.radio;
   }
 
   return { scaleX, scaleY };
@@ -573,10 +616,8 @@ function getOriginScalePosition(target: fabric.Image, origin: fabric.Image, e: f
   }
 }
 
-function setOriginScalePosition(origin: fabric.Image, e: fabric.IEvent, point?: Point) {
-  if (point && e.transform?.corner) {
-    ['tl', 'tr', 'bl'].includes(e.transform.corner) && origin.setPositionByOrigin(new fabric.Point(point.x, point.y), 'left', 'top');
-  }
+function setOriginScalePosition(origin: fabric.Image, corner: string, point: Point) {
+  ['tl', 'tr', 'bl'].includes(corner) && origin.setPositionByOrigin(new fabric.Point(point.x, point.y), 'left', 'top');
 }
 
 export function setOriginMoveRectRange(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent) {
