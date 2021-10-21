@@ -162,16 +162,18 @@ export function bindFollow(target: fabric.Object) {
 
 const defaultControls = (({ tl, tr, br, bl }) => ({ tl, tr, br, bl }))(fabric.Image.prototype.controls);
 
-function drawLine(ctx: CanvasRenderingContext2D, x: number, y: number) {
+function drawLine(ctx: CanvasRenderingContext2D, x: number, y: number, fabricObject: fabric.Object) {
   let points: number[] = [];
+  const lineWidth = Math.min(fabricObject.getScaledWidth(), 10);
+  const lineHeight = Math.min(fabricObject.getScaledHeight(), 10);
   if (x < 0 && y < 0) {
-    points = [10, 0, 0, 0, 0, 10];
+    points = [lineWidth, 0, 0, 0, 0, lineHeight];
   } else if (x > 0 && y < 0) {
-    points = [-10, 0, 0, 0, 0, 10];
+    points = [-lineWidth, 0, 0, 0, 0, lineHeight];
   } else if (x > 0 && y > 0) {
-    points = [0, -10, 0, 0, -10, 0];
+    points = [0, -lineHeight, 0, 0, -lineWidth, 0];
   } else {
-    points = [0, -10, 0, 0, 10, 0];
+    points = [0, -lineHeight, 0, 0, lineWidth, 0];
   }
 
   ctx.beginPath();
@@ -188,7 +190,7 @@ function renderIcon(this: any, ctx: CanvasRenderingContext2D, left: number, top:
   ctx.save();
   ctx.translate(left, top);
   ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle || 0));
-  drawLine(ctx, this.x, this.y);
+  drawLine(ctx, this.x, this.y, fabricObject);
   ctx.restore();
 }
 
@@ -228,7 +230,7 @@ export function setCroppingControls(target: fabric.Image, origin: fabric.Image) 
   (target as any).cropping = true;
 
   Object.entries(defaultControls).map(([name, ctl]) => {
-    target.controls[name] = new fabric.Control({ ...ctl, render: renderIcon });
+    target.controls[name] = new fabric.Control({ ...ctl, render: renderIcon, sizeX: 15, sizeY: 15 });
   });
 }
 

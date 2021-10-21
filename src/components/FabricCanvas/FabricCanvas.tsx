@@ -13,8 +13,6 @@ export default function FabricCanvas() {
   useEffect(() => {
     const tabric = new Tabric('canvas');
     setTabric(tabric);
-    tabric?.addImage(imageUrl, { width: 200, height: 200, left: 400, top: 100 });
-    tabric?.addImage(imageUrl, { width: 200, height: 200, left: 650, top: 100 });
     (window as any).tabric = tabric;
   }, []);
   return (
