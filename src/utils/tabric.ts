@@ -94,6 +94,11 @@ export default class Tabric {
       this.croppingTarget.set(getTargetCroppedProperties(this.croppingTarget, this.croppingOrigin)).setCoords();
       this._canvas.renderAll();
     });
+    this._canvas.on('after:render', (e: any) => {
+      if (!this.croppingTarget && !this.croppingOrigin) return;
+      (this.croppingTarget as any)._renderControls(e.ctx, { hasControls: false, hasBorders: true });
+      (this.croppingOrigin as any)._renderControls(e.ctx, { hasControls: false, hasBorders: true });
+    });
   };
 
   startCropping = () => {
@@ -212,5 +217,44 @@ export default class Tabric {
     (activeObj as any)?.addWithUpdate?.();
     this._canvas.renderAll();
     this._canvas.fire('object:fliped', { target: activeObj });
+  };
+
+  clipper: fabric.Object | null = null;
+
+  paste = () => {
+    if (!this.clipper) return;
+    this.clipper.clone((cloned: fabric.Object) => {
+      this._canvas.discardActiveObject();
+      cloned.set({
+        left: (cloned.left || 0) + 20,
+        top: (cloned.top || 0) + 20,
+      });
+      if (cloned.isType('activeSelection')) {
+        cloned.canvas = this._canvas;
+        (cloned as fabric.ActiveSelection).forEachObject((obj) => {
+          this._canvas.add(obj);
+        });
+        cloned.setCoords();
+      } else {
+        this._canvas.add(cloned);
+      }
+      this._canvas.setActiveObject(cloned);
+    });
+  };
+
+  copy = () => {
+    this.clipper = this._canvas.getActiveObject();
+  };
+
+  delete = () => {
+    const active = this._canvas.getActiveObject();
+    this._canvas.discardActiveObject();
+    if (active.isType('activeSelection')) {
+      (active as fabric.ActiveSelection).forEachObject((obj) => {
+        this._canvas.remove(obj);
+      });
+    } else {
+      this._canvas.remove(active);
+    }
   };
 }

@@ -13,6 +13,8 @@ export default function FabricCanvas() {
   useEffect(() => {
     const tabric = new Tabric('canvas');
     setTabric(tabric);
+    tabric?.addImage(imageUrl, { width: 200, height: 200, left: 400, top: 100 });
+    tabric?.addImage(imageUrl, { width: 200, height: 200, left: 650, top: 100 });
     (window as any).tabric = tabric;
   }, []);
   return (
@@ -27,6 +29,9 @@ export default function FabricCanvas() {
       <button onClick={tabric?.confirmCropping}>确认裁切</button>
       <button onClick={() => tabric?.flip('flipX')}>水平翻转</button>
       <button onClick={() => tabric?.flip('flipY')}>垂直翻转</button>
+      <button onClick={() => tabric?.copy()}>copy</button>
+      <button onClick={() => tabric?.paste()}>paste</button>
+      <button onClick={() => tabric?.delete()}>delete</button>
       <div id="cropper"></div>
     </div>
   );

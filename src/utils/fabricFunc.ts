@@ -160,6 +160,38 @@ export function bindFollow(target: fabric.Object) {
   (origin as any).relationship = desiredTransform;
 }
 
+const defaultControls = (({ tl, tr, br, bl }) => ({ tl, tr, br, bl }))(fabric.Image.prototype.controls);
+
+function drawLine(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  let points: number[] = [];
+  if (x < 0 && y < 0) {
+    points = [10, 0, 0, 0, 0, 10];
+  } else if (x > 0 && y < 0) {
+    points = [-10, 0, 0, 0, 0, 10];
+  } else if (x > 0 && y > 0) {
+    points = [0, -10, 0, 0, -10, 0];
+  } else {
+    points = [0, -10, 0, 0, 10, 0];
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0], points[1]);
+  ctx.lineTo(points[2], points[3]);
+  ctx.lineTo(points[4], points[5]);
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.closePath();
+}
+
+function renderIcon(this: any, ctx: CanvasRenderingContext2D, left: number, top: number, styleOverride: object, fabricObject: fabric.Object) {
+  ctx.save();
+  ctx.translate(left, top);
+  ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle || 0));
+  drawLine(ctx, this.x, this.y);
+  ctx.restore();
+}
+
 export function setCroppingControls(target: fabric.Image, origin: fabric.Image) {
   origin
     .setControlsVisibility({
@@ -194,6 +226,10 @@ export function setCroppingControls(target: fabric.Image, origin: fabric.Image) 
       lockScalingFlip: true,
     });
   (target as any).cropping = true;
+
+  Object.entries(defaultControls).map(([name, ctl]) => {
+    target.controls[name] = new fabric.Control({ ...ctl, render: renderIcon });
+  });
 }
 
 export function setUnCroppingControls(target: fabric.Image) {
@@ -213,6 +249,9 @@ export function setUnCroppingControls(target: fabric.Image) {
       lockScalingFlip: false,
     });
   (target as any).cropping = false;
+  Object.entries(defaultControls).map(([name, ctl]) => {
+    target.controls[name] = ctl;
+  });
 }
 
 /**
@@ -532,7 +571,6 @@ export function getOriginScaleProperties(target: fabric.Image, origin: fabric.Im
       case 'tr': {
         const p1 = linearsIntersection(opts.diagonal[1], linearFunction(tr, br));
         const p = pedalPoint(p1, linearFunction(BL, TL));
-        console.log(p);
         setOriginScalePosition(origin, corner, p);
         break;
       }
