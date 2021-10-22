@@ -41,6 +41,9 @@ interface OriginOptions {
   radio: number;
 }
 
+const MIN_WIDTH = 50;
+const MIN_HEIGHT = 50;
+
 function commonEventInfo(eventData: MouseEvent, transform: fabric.Transform, x: number, y: number) {
   return {
     e: eventData,
@@ -181,6 +184,7 @@ function drawLine(ctx: CanvasRenderingContext2D, x: number, y: number, fabricObj
   ctx.lineTo(points[2], points[3]);
   ctx.lineTo(points[4], points[5]);
   ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.stroke();
   ctx.closePath();
@@ -225,7 +229,7 @@ export function setCroppingControls(target: fabric.Image, origin: fabric.Image) 
       lockMovementY: true,
       lockSkewingX: true,
       lockSkewingY: true,
-      lockScalingFlip: true,
+      // lockScalingFlip: true,
     });
   (target as any).cropping = true;
 
@@ -248,7 +252,7 @@ export function setUnCroppingControls(target: fabric.Image) {
       lockMovementY: false,
       lockSkewingX: false,
       lockSkewingY: false,
-      lockScalingFlip: false,
+      // lockScalingFlip: false,
     });
   (target as any).cropping = false;
   Object.entries(defaultControls).map(([name, ctl]) => {
@@ -275,41 +279,84 @@ export function setTargetScaleCroods(target: fabric.Image) {
  */
 export function getTargetScaleProperties(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent) {
   let { width = 0, height = 0, left = 0, top = 0 } = target;
-  const { tl, tr, bl } = target.get('aCoords') as ACoords;
+  const { angle = 0, flipX, flipY, scaleX = 1, scaleY = 1 } = origin;
+  const WIDTH = origin.getScaledWidth();
+  const HEIGHT = origin.getScaledHeight();
+  const { tl, tr, br, bl } = target.get('aCoords') as ACoords;
   const { tl: TL, tr: TR, br: BR, bl: BL } = origin.aCoords as ACoords;
   const opts = (target as any)._opts as TargetOptions;
   const pointer = e.pointer as fabric.Point;
+
+  const sin = Math.sin((angle * Math.PI) / 180);
+  const cos = Math.cos((angle * Math.PI) / 180);
 
   switch (e.transform?.corner) {
     case 'tl': {
       let local: fabric.Point;
       let p: fabric.Point | Point;
       const localPointer = toLocalPoint(origin, pointer);
+      const startLocalBl = toLocalPoint(origin, opts.coords.bl);
+      const startLocalTr = toLocalPoint(origin, opts.coords.tr);
 
-      if (localPointer.x < 0 && localPointer.y < 0) {
-        // left top
+      const realWidth = startLocalTr.x - localPointer.x;
+
+      console.log(realWidth);
+
+      const x = br.x - MIN_HEIGHT * cos + MIN_WIDTH * sin;
+      const y = br.y - MIN_HEIGHT * sin - MIN_WIDTH * cos;
+      console.log({ x, y });
+      if (localPointer.x >= startLocalTr.x - MIN_WIDTH && localPointer.y >= startLocalBl.y - MIN_HEIGHT) {
+        // right-bottom
+        p = { x, y };
+        local = toLocalPoint(origin, new fabric.Point(x, y));
+        console.log('rb');
+      } else if (localPointer.y > startLocalBl.y - MIN_HEIGHT && localPointer.x < 0) {
+        // left-bottom
+        p = pedalPoint({ x, y }, linearFunction(BL, TL));
+        local = toLocalPoint(origin, new fabric.Point(x, y));
+        console.log('lb');
+      } else if (localPointer.y > startLocalBl.y - MIN_HEIGHT) {
+        // bottom
+        p = pedalPoint(pointer, perpendicularLinear({ x, y }, linearFunction(bl, tl)));
+
+        local = toLocalPoint(origin, pointer);
+        console.log('b');
+      } else if (startLocalTr.x - localPointer.x < MIN_WIDTH && localPointer.y < 0) {
+        // right-top
+        p = pedalPoint(tl, linearFunction(TL, TR));
+        local = toLocalPoint(origin, new fabric.Point(p.x, p.y));
+        console.log('rt');
+      } else if (startLocalTr.x - localPointer.x < MIN_WIDTH) {
+        // right
+        p = pedalPoint(pointer, perpendicularLinear({ x, y }, linearFunction(tl, tr)));
+        local = toLocalPoint(origin, pointer);
+        console.log('r');
+      } else if (localPointer.x < 0 && localPointer.y < 0) {
+        // left-top
         p = TL;
         local = toLocalPoint(origin, TL);
+        console.log('lt');
       } else if (localPointer.x < 0) {
         // left
         p = pedalPoint(pointer, linearFunction(BL, TL));
         local = toLocalPoint(origin, new fabric.Point(p.x, p.y));
+        console.log('l');
       } else if (localPointer.y < 0) {
         // top
         p = pedalPoint(pointer, linearFunction(TL, TR));
         local = toLocalPoint(origin, new fabric.Point(p.x, p.y));
+        console.log('t');
       } else {
         // inner
         p = pointer;
         local = toLocalPoint(origin, pointer);
+        console.log('i');
       }
 
       left = p.x;
       top = p.y;
-      const startLocalBl = toLocalPoint(origin, opts.coords.bl);
-      const startLocalTr = toLocalPoint(origin, opts.coords.tr);
-      width = startLocalTr.x - local.x;
-      height = startLocalBl.y - local.y;
+      width = Math.min(Math.max(startLocalTr.x - local.x, MIN_WIDTH), startLocalTr.x);
+      height = Math.min(Math.max(startLocalBl.y - local.y, MIN_HEIGHT));
       break;
     }
     case 'tr': {
@@ -317,17 +364,41 @@ export function getTargetScaleProperties(target: fabric.Image, origin: fabric.Im
       const localPointer = toLocalPoint(origin, pointer, 'right', 'top');
       const startLocalTl = toLocalPoint(origin, opts.coords.tl);
       const startLocalBr = toLocalPoint(origin, opts.coords.br);
+      const startLocalPointer = toLocalPoint(origin, pointer);
 
-      if (localPointer.x > 0 && localPointer.y < 0) {
-        // right top
-        p = linearsIntersection(linearFunction(bl, tl), linearFunction(TL, TR));
+      const realWidth = startLocalPointer.x - startLocalTl.x;
+      const realHeight = startLocalBr.y - startLocalPointer.y;
+
+      const x = bl.x + MIN_HEIGHT * cos + MIN_WIDTH * sin;
+      const y = bl.y - MIN_WIDTH * cos + MIN_HEIGHT * sin;
+
+      if (realWidth < MIN_WIDTH && realHeight < MIN_HEIGHT) {
+        // left-bottom
+        p = pedalPoint({ x, y }, linearFunction(bl, tl));
+        width = MIN_WIDTH;
+        height = MIN_HEIGHT;
+      } else if (realHeight < MIN_HEIGHT) {
+        // bottom | right-bottom
+        p = pedalPoint({ x, y }, linearFunction(bl, tl));
+        const local = toLocalPoint(origin, pointer);
+        width = Math.min(local.x - startLocalTl.x, WIDTH - startLocalTl.x);
+        height = MIN_HEIGHT;
+      } else if (realWidth < MIN_WIDTH) {
+        // left | left-top
+        p = localPointer.y < 0 ? pedalPoint(tl, linearFunction(TL, TR)) : pedalPoint(pointer, linearFunction(bl, tl));
+        const local = toLocalPoint(origin, pointer);
+        width = MIN_WIDTH;
+        height = Math.min(startLocalBr.y - local.y, startLocalBr.y);
+      } else if (localPointer.x > 0 && localPointer.y < 0) {
+        // right-top
+        p = pedalPoint(tl, linearFunction(TL, TR));
         const local = toLocalPoint(origin, TR);
         width = local.x - startLocalTl.x;
         height = startLocalBr.y - local.y;
       } else if (localPointer.x > 0) {
         // right
         p = pedalPoint(pointer, linearFunction(bl, tl));
-        const local = toLocalPoint(origin, new fabric.Point(p.x, p.y));
+        const local = toLocalPoint(origin, pointer);
         width = toLocalPoint(origin, TR).x - startLocalTl.x;
         height = startLocalBr.y - local.y;
       } else if (localPointer.y < 0) {
@@ -354,9 +425,9 @@ export function getTargetScaleProperties(target: fabric.Image, origin: fabric.Im
       const startLocalTr = toLocalPoint(origin, opts.coords.tr);
 
       if (localPointer.x > 0 && localPointer.y > 0) {
+        // right-bottom
         width = toLocalPoint(origin, BR).x - startLocalBl.x;
         height = toLocalPoint(origin, BR).y - startLocalTr.y;
-        // right bottom
       } else if (localPointer.x > 0) {
         const local = toLocalPoint(origin, pointer);
         width = toLocalPoint(origin, BR).x - startLocalBl.x;
@@ -418,7 +489,7 @@ export function getTargetScaleProperties(target: fabric.Image, origin: fabric.Im
     }
   }
 
-  return { left, top, width, height, scaleX: 1, scaleY: 1 };
+  return { left, top, width: Math.max(width), height: Math.max(height), scaleX: 1, scaleY: 1, flipX, flipY };
 }
 
 function wrapScaleEvent(origin: fabric.Object, e: fabric.IEvent, point: { in: Point; outX: Point; outY: Point; outXY: Point }) {
