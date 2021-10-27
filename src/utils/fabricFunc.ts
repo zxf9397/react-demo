@@ -1,14 +1,5 @@
 import { fabric } from 'fabric';
-import {
-  linearFunction,
-  LinearFunction,
-  linearFunctionMove,
-  linearsIntersection,
-  pedalPoint,
-  perpendicularLinear,
-  Point,
-  pointToLinearDistance,
-} from './func';
+import { linearFunction, LinearFunction, linearFunctionMove, linearsIntersection, pedalPoint, perpendicularLinear, Point } from './func';
 
 type ACoords = Record<'tl' | 'tr' | 'br' | 'bl', fabric.Point>;
 
@@ -19,30 +10,55 @@ export interface CoordsLinears {
   bottom: LinearFunction;
 }
 
+type Controls = 'bl' | 'br' | 'mb' | 'ml' | 'mr' | 'mt' | 'tl' | 'tr' | 'mtr';
+type ControlsEvents = 'lockMovementX' | 'lockMovementY' | 'lockSkewingX' | 'lockSkewingY' | 'centeredScaling';
+
 interface TargetOptions {
-  scaleWidth: number;
-  scaleHeight: number;
-  coords: ACoords;
+  bound?: boolean;
+  cropping?: boolean;
+  _opts: {
+    controlsVisibility?: { [key in Controls]?: boolean };
+    controlsEvents?: { [key in ControlsEvents]?: boolean };
+    canvasCenteredScaling?: boolean;
+    // origin: fabric.Image & OriginOptions;
+    aCoords?: ACoords;
+  };
 }
 interface OriginOptions {
-  // starting postion of cropping origin
-  position: { x: number; y: number };
-  // starting mouse pointer
-  pointer: fabric.Point;
-  // valid range of mouse movement
-  moveRegion: fabric.Rect;
-  // the pedal pointer to top/left linear
-  pedals: { top: Point; left: Point };
-  // valid range of cropping origin movement
-  linears: CoordsLinears;
-  minScaleX: number;
-  minScaleY: number;
-  diagonal: [LinearFunction, LinearFunction];
-  radio: number;
+  _opts: {
+    // starting postion of cropping origin
+    position: { x: number; y: number };
+    // starting mouse pointer
+    pointer: fabric.Point;
+    // valid range of mouse movement
+    moveRegion: fabric.Rect;
+    // the pedal pointer to top/left linear
+    pedals: { top: Point; left: Point };
+    // valid range of cropping origin movement
+    linears: CoordsLinears;
+    minScaleX: number;
+    minScaleY: number;
+    diagonal: [LinearFunction, LinearFunction];
+    radio: number;
+  };
 }
 
+const ORIGINAL_IMAGE_OPACITY = 0.8;
+// 折线长度
+const CORNER_LINE_LENGTH = 10;
+// 折线宽度
+const CORNER_LINE_WIDTH = 4;
 const MIN_WIDTH = 50;
 const MIN_HEIGHT = 50;
+
+const controlsHidden: { [key in Controls]?: boolean } = { mtr: false, ml: false, mt: false, mr: false, mb: false };
+const eventLock: { [key in ControlsEvents]?: boolean } = {
+  lockMovementX: true,
+  lockMovementY: true,
+  lockSkewingX: true,
+  lockSkewingY: true,
+  centeredScaling: false,
+};
 
 function commonEventInfo(eventData: MouseEvent, transform: fabric.Transform, x: number, y: number) {
   return {
@@ -70,15 +86,6 @@ function wrapWithFireEvent(
 
 function toLocalPoint(target: fabric.Object, point: fabric.Point, originX: 'left' | 'right' = 'left', originY: 'top' | 'bottom' = 'top') {
   return target.toLocalPoint(point, originX, originY);
-}
-
-export function setControlsActionHandler(obj: fabric.Object) {
-  // 解决缩放时的抖动
-  obj.controls.tl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
-  obj.controls.mt.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingYOrSkewingX);
-  obj.controls.tr.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
-  obj.controls.bl.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingEqually);
-  obj.controls.ml.actionHandler = wrapWithFireEvent('scaling', (fabric as any).controlsUtils.scalingXOrSkewingY);
 }
 
 export function wrapWithModified(handler: (target: fabric.Image, e: { target?: fabric.Object }) => void) {
@@ -167,8 +174,8 @@ const defaultControls = (({ tl, tr, br, bl }) => ({ tl, tr, br, bl }))(fabric.Im
 
 function drawLine(ctx: CanvasRenderingContext2D, x: number, y: number, fabricObject: fabric.Object) {
   let points: number[] = [];
-  const lineWidth = Math.min(fabricObject.getScaledWidth(), 10);
-  const lineHeight = Math.min(fabricObject.getScaledHeight(), 10);
+  const lineWidth = Math.min(fabricObject.getScaledWidth(), CORNER_LINE_LENGTH);
+  const lineHeight = Math.min(fabricObject.getScaledHeight(), CORNER_LINE_LENGTH);
   if (x < 0 && y < 0) {
     points = [lineWidth, 0, 0, 0, 0, lineHeight];
   } else if (x > 0 && y < 0) {
@@ -183,7 +190,7 @@ function drawLine(ctx: CanvasRenderingContext2D, x: number, y: number, fabricObj
   ctx.moveTo(points[0], points[1]);
   ctx.lineTo(points[2], points[3]);
   ctx.lineTo(points[4], points[5]);
-  ctx.lineWidth = 4;
+  ctx.lineWidth = CORNER_LINE_WIDTH;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.stroke();
@@ -198,66 +205,76 @@ function renderIcon(this: any, ctx: CanvasRenderingContext2D, left: number, top:
   ctx.restore();
 }
 
-export function setCroppingControls(target: fabric.Image, origin: fabric.Image) {
-  origin
-    .setControlsVisibility({
-      mtr: false,
-      ml: false,
-      mt: false,
-      mr: false,
-      mb: false,
-    })
-    .set({
-      lockMovementX: true,
-      lockMovementY: true,
-      lockSkewingX: true,
-      lockSkewingY: true,
-      lockScalingFlip: true,
-      opacity: 0.6,
-    });
-
-  target
-    .setControlsVisibility({
-      mtr: false,
-      ml: false,
-      mt: false,
-      mr: false,
-      mb: false,
-    })
-    .set({
-      lockMovementX: true,
-      lockMovementY: true,
-      lockSkewingX: true,
-      lockSkewingY: true,
-      // lockScalingFlip: true,
-    });
-  (target as any).cropping = true;
-
-  Object.entries(defaultControls).map(([name, ctl]) => {
-    target.controls[name] = new fabric.Control({ ...ctl, render: renderIcon, sizeX: 15, sizeY: 15 });
+/**
+ * 初始化裁切事件
+ * @param target 裁切对象
+ * @param origin 原对象
+ */
+export function initializeCroppingEvents(target: fabric.Image, origin: fabric.Image) {
+  const { lockMovementX, lockMovementY, lockSkewingX, lockSkewingY, centeredScaling } = target;
+  const cTarget = target as fabric.Image & TargetOptions;
+  const cOrigin = origin as fabric.Image & OriginOptions;
+  // 设置原对象的属性
+  cOrigin.setControlsVisibility(controlsHidden).set({
+    ...eventLock,
+    lockScalingFlip: true,
+    centeredScaling: false,
+    opacity: ORIGINAL_IMAGE_OPACITY,
   });
+  // 设置裁切对象的属性
+  cTarget.setControlsVisibility(controlsHidden).set(eventLock);
+  //
+
+  console.log(lockMovementX, lockMovementY);
+  cTarget._opts = {
+    ...cTarget._opts,
+    controlsVisibility: Object.keys(cTarget.controls).reduce((opt: Record<string, boolean>, name) => {
+      opt[name] = cTarget.isControlVisible(name);
+      return opt;
+    }, {}),
+    controlsEvents: {
+      lockMovementX,
+      lockMovementY,
+      lockSkewingX,
+      lockSkewingY,
+      centeredScaling,
+    },
+    canvasCenteredScaling: cTarget.canvas?.centeredScaling,
+  };
+  //
+  cTarget.canvas && (cTarget.canvas.centeredScaling = false);
+  // 设置裁切中控制器的样式
+  Object.entries(defaultControls).map(([name, ctl]) => {
+    cTarget.controls[name] = new fabric.Control({ ...ctl, render: renderIcon, sizeX: CORNER_LINE_LENGTH * 1.5, sizeY: CORNER_LINE_LENGTH * 1.5 });
+  });
+  // 清空裁切对象的最小缩放
+  cTarget.set('minScaleLimit', undefined);
+  // 进入裁切状态
+  cTarget.cropping = true;
 }
 
-export function setUnCroppingControls(target: fabric.Image) {
-  target
-    .setControlsVisibility({
-      mtr: true,
-      ml: true,
-      mt: true,
-      mr: true,
-      mb: true,
-    })
-    .set({
-      lockMovementX: false,
-      lockMovementY: false,
-      lockSkewingX: false,
-      lockSkewingY: false,
-      // lockScalingFlip: false,
-    });
-  (target as any).cropping = false;
-  Object.entries(defaultControls).map(([name, ctl]) => {
-    target.controls[name] = ctl;
+/**
+ * 还原到裁切前的事件
+ * @param target 裁切对象
+ */
+export function initializeUnCroppingEvents(target: fabric.Image) {
+  const cTarget = target as fabric.Image & TargetOptions;
+  // 还原裁切对象的属性
+  cTarget.setControlsVisibility({ ...cTarget._opts.controlsVisibility }).set({ ...cTarget._opts.controlsEvents });
+  //
+  cTarget.canvas && (cTarget.canvas.centeredScaling = cTarget._opts.canvasCenteredScaling);
+  // 还原控制器的样式
+  Object.entries(defaultControls).map(([name, control]) => {
+    cTarget.controls[name] = control;
   });
+  // 设置裁切对象的最小缩放
+  const scaledWidth = cTarget.getScaledWidth();
+  const scaledHeight = cTarget.getScaledHeight();
+  const minScaleX = MIN_WIDTH / scaledWidth;
+  const minScaleY = MIN_HEIGHT / scaledHeight;
+  cTarget.set('minScaleLimit', Math.max(minScaleX * (cTarget.scaleX || 1), minScaleY * (cTarget.scaleY || 1)));
+  // 退出裁切状态
+  cTarget.cropping = false;
 }
 
 /**
@@ -265,284 +282,142 @@ export function setUnCroppingControls(target: fabric.Image) {
  * @param target
  */
 export function setTargetScaleCroods(target: fabric.Image) {
-  const coords = target.get('aCoords') as ACoords;
-  const opts: TargetOptions = { ...((target as any)._opts as TargetOptions), coords };
-  (target as any)._opts = opts;
+  const cTarget = target as fabric.Image & TargetOptions;
+  cTarget._opts = { ...cTarget._opts, aCoords: cTarget.aCoords as ACoords };
 }
 
 /**
  * calculates the current coords of the cropping target
- * @param target
- * @param origin
+ * @param cTarget
+ * @param cOrigin
  * @param e
  * @returns
  */
 export function getTargetScaleProperties(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent) {
-  let { width = 0, height = 0, left = 0, top = 0 } = target;
-  const { angle = 0, flipX, flipY, scaleX = 1, scaleY = 1 } = origin;
-  const WIDTH = origin.getScaledWidth();
-  const HEIGHT = origin.getScaledHeight();
-  const { tl, tr, br, bl } = target.get('aCoords') as ACoords;
-  const { tl: TL, tr: TR, br: BR, bl: BL } = origin.aCoords as ACoords;
-  const opts = (target as any)._opts as TargetOptions;
+  let { width = 0, height = 0, left, top } = target;
+  const { angle = 0, flipX, flipY } = origin;
+  const { tl: TL, tr: TR, bl: BL } = origin.aCoords as ACoords;
+  const { tl, tr, br, bl } = (target as fabric.Image & TargetOptions)._opts.aCoords as ACoords;
   const pointer = e.pointer as fabric.Point;
-
   const sin = Math.sin((angle * Math.PI) / 180);
   const cos = Math.cos((angle * Math.PI) / 180);
+  const startLocalTl = toLocalPoint(origin, tl);
+  const startLocalBr = toLocalPoint(origin, br);
 
   switch (e.transform?.corner) {
     case 'tl': {
       let local: fabric.Point;
       let p: fabric.Point | Point;
       const localPointer = toLocalPoint(origin, pointer);
-      const startLocalBl = toLocalPoint(origin, opts.coords.bl);
-      const startLocalTr = toLocalPoint(origin, opts.coords.tr);
-
-      const realWidth = startLocalTr.x - localPointer.x;
-
-      console.log(realWidth);
-
       const x = br.x - MIN_HEIGHT * cos + MIN_WIDTH * sin;
       const y = br.y - MIN_HEIGHT * sin - MIN_WIDTH * cos;
-      console.log({ x, y });
-      if (localPointer.x >= startLocalTr.x - MIN_WIDTH && localPointer.y >= startLocalBl.y - MIN_HEIGHT) {
+      const endPointer = toLocalPoint(origin, new fabric.Point(x, y));
+
+      if (localPointer.x >= endPointer.x && localPointer.y >= endPointer.y) {
         // right-bottom
         p = { x, y };
         local = toLocalPoint(origin, new fabric.Point(x, y));
-        console.log('rb');
-      } else if (localPointer.y > startLocalBl.y - MIN_HEIGHT && localPointer.x < 0) {
+      } else if (localPointer.x > endPointer.x && localPointer.y > 0 && localPointer.y < endPointer.y) {
+        // right
+        p = pedalPoint(pointer, perpendicularLinear({ x, y }, linearFunction(TL, TR)));
+        local = toLocalPoint(origin, pointer);
+      } else if (localPointer.x > 0 && localPointer.x < endPointer.x && localPointer.y > endPointer.y) {
+        // bottom
+        p = pedalPoint(pointer, perpendicularLinear({ x, y }, linearFunction(BL, TL)));
+        local = toLocalPoint(origin, pointer);
+      } else if (localPointer.x >= endPointer.x && localPointer.y <= 0) {
+        // right-top
+        p = pedalPoint({ x, y }, linearFunction(TL, TR));
+        local = toLocalPoint(origin, new fabric.Point(p.x, p.y));
+      } else if (localPointer.x <= 0 && localPointer.y >= endPointer.y) {
         // left-bottom
         p = pedalPoint({ x, y }, linearFunction(BL, TL));
-        local = toLocalPoint(origin, new fabric.Point(x, y));
-        console.log('lb');
-      } else if (localPointer.y > startLocalBl.y - MIN_HEIGHT) {
-        // bottom
-        p = pedalPoint(pointer, perpendicularLinear({ x, y }, linearFunction(bl, tl)));
-
-        local = toLocalPoint(origin, pointer);
-        console.log('b');
-      } else if (startLocalTr.x - localPointer.x < MIN_WIDTH && localPointer.y < 0) {
-        // right-top
-        p = pedalPoint(tl, linearFunction(TL, TR));
         local = toLocalPoint(origin, new fabric.Point(p.x, p.y));
-        console.log('rt');
-      } else if (startLocalTr.x - localPointer.x < MIN_WIDTH) {
-        // right
-        p = pedalPoint(pointer, perpendicularLinear({ x, y }, linearFunction(tl, tr)));
-        local = toLocalPoint(origin, pointer);
-        console.log('r');
-      } else if (localPointer.x < 0 && localPointer.y < 0) {
-        // left-top
-        p = TL;
-        local = toLocalPoint(origin, TL);
-        console.log('lt');
-      } else if (localPointer.x < 0) {
+      } else if (localPointer.x < 0 && localPointer.y > 0 && localPointer.y < endPointer.y) {
         // left
         p = pedalPoint(pointer, linearFunction(BL, TL));
         local = toLocalPoint(origin, new fabric.Point(p.x, p.y));
-        console.log('l');
-      } else if (localPointer.y < 0) {
+      } else if (localPointer.x > 0 && localPointer.x < endPointer.x && localPointer.y < 0) {
         // top
         p = pedalPoint(pointer, linearFunction(TL, TR));
         local = toLocalPoint(origin, new fabric.Point(p.x, p.y));
-        console.log('t');
+      } else if (localPointer.x <= 0 && localPointer.y <= 0) {
+        // left-top
+        p = TL;
+        local = toLocalPoint(origin, TL);
       } else {
-        // inner
+        // console.log('inner');
         p = pointer;
         local = toLocalPoint(origin, pointer);
-        console.log('i');
       }
 
       left = p.x;
       top = p.y;
-      width = Math.min(Math.max(startLocalTr.x - local.x, MIN_WIDTH), startLocalTr.x);
-      height = Math.min(Math.max(startLocalBl.y - local.y, MIN_HEIGHT));
+      width = startLocalBr.x - local.x;
+      height = startLocalBr.y - local.y;
       break;
     }
     case 'tr': {
       let p: fabric.Point | Point;
       const localPointer = toLocalPoint(origin, pointer, 'right', 'top');
-      const startLocalTl = toLocalPoint(origin, opts.coords.tl);
-      const startLocalBr = toLocalPoint(origin, opts.coords.br);
-      const startLocalPointer = toLocalPoint(origin, pointer);
-
-      const realWidth = startLocalPointer.x - startLocalTl.x;
-      const realHeight = startLocalBr.y - startLocalPointer.y;
-
       const x = bl.x + MIN_HEIGHT * cos + MIN_WIDTH * sin;
-      const y = bl.y - MIN_WIDTH * cos + MIN_HEIGHT * sin;
+      const y = bl.y + MIN_HEIGHT * sin - MIN_WIDTH * cos;
+      const endPointer = toLocalPoint(origin, new fabric.Point(x, y), 'right', 'top');
 
-      if (realWidth < MIN_WIDTH && realHeight < MIN_HEIGHT) {
-        // left-bottom
+      if (localPointer.y >= endPointer.y) {
+        // left-bottom | bottom | right-bottom
         p = pedalPoint({ x, y }, linearFunction(bl, tl));
-        width = MIN_WIDTH;
-        height = MIN_HEIGHT;
-      } else if (realHeight < MIN_HEIGHT) {
-        // bottom | right-bottom
-        p = pedalPoint({ x, y }, linearFunction(bl, tl));
-        const local = toLocalPoint(origin, pointer);
-        width = Math.min(local.x - startLocalTl.x, WIDTH - startLocalTl.x);
-        height = MIN_HEIGHT;
-      } else if (realWidth < MIN_WIDTH) {
-        // left | left-top
-        p = localPointer.y < 0 ? pedalPoint(tl, linearFunction(TL, TR)) : pedalPoint(pointer, linearFunction(bl, tl));
-        const local = toLocalPoint(origin, pointer);
-        width = MIN_WIDTH;
-        height = Math.min(startLocalBr.y - local.y, startLocalBr.y);
-      } else if (localPointer.x > 0 && localPointer.y < 0) {
-        // right-top
+      } else if (localPointer.y <= 0) {
+        // left-top | top | right-top
         p = pedalPoint(tl, linearFunction(TL, TR));
-        const local = toLocalPoint(origin, TR);
-        width = local.x - startLocalTl.x;
-        height = startLocalBr.y - local.y;
-      } else if (localPointer.x > 0) {
-        // right
-        p = pedalPoint(pointer, linearFunction(bl, tl));
-        const local = toLocalPoint(origin, pointer);
-        width = toLocalPoint(origin, TR).x - startLocalTl.x;
-        height = startLocalBr.y - local.y;
-      } else if (localPointer.y < 0) {
-        // top
-        p = linearsIntersection(linearFunction(bl, tl), linearFunction(TL, TR));
-        const local = toLocalPoint(origin, pointer);
-        width = local.x - startLocalTl.x;
-        height = startLocalBr.y;
       } else {
-        // inner
+        // inner | left | right
         p = pedalPoint(pointer, linearFunction(bl, tl));
-        const local = toLocalPoint(origin, pointer);
-        width = local.x - startLocalTl.x;
-        height = startLocalBr.y - local.y;
       }
 
       left = p.x;
       top = p.y;
+      const local = toLocalPoint(origin, pointer);
+      width = Math.min(local.x, origin.getScaledWidth()) - startLocalTl.x;
+      height = startLocalBr.y - Math.max(local.y, 0);
       break;
     }
     case 'br': {
-      const localPointer = toLocalPoint(origin, pointer, 'right', 'bottom');
-      const startLocalBl = toLocalPoint(origin, opts.coords.bl);
-      const startLocalTr = toLocalPoint(origin, opts.coords.tr);
-
-      if (localPointer.x > 0 && localPointer.y > 0) {
-        // right-bottom
-        width = toLocalPoint(origin, BR).x - startLocalBl.x;
-        height = toLocalPoint(origin, BR).y - startLocalTr.y;
-      } else if (localPointer.x > 0) {
-        const local = toLocalPoint(origin, pointer);
-        width = toLocalPoint(origin, BR).x - startLocalBl.x;
-        height = local.y - startLocalTr.y;
-        // right
-      } else if (localPointer.y > 0) {
-        const local = toLocalPoint(origin, pointer);
-        width = local.x - startLocalBl.x;
-        height = toLocalPoint(origin, BR).y - startLocalTr.y;
-        // bottom
-      } else {
-        // inner
-        const local = toLocalPoint(origin, pointer);
-        width = local.x - startLocalBl.x;
-        height = local.y - startLocalTr.y;
-      }
+      left = tl.x;
+      top = tl.y;
+      const local = toLocalPoint(origin, pointer);
+      width = Math.min(local.x, origin.getScaledWidth()) - startLocalTl.x;
+      height = Math.min(local.y, origin.getScaledHeight()) - startLocalTl.y;
       break;
     }
     case 'bl': {
       let p: fabric.Point | Point;
       const localPointer = toLocalPoint(origin, pointer, 'left', 'bottom');
+      const x = tr.x - MIN_WIDTH * cos - MIN_HEIGHT * sin;
+      const y = tr.y - MIN_WIDTH * sin + MIN_HEIGHT * cos;
+      const endPointer = toLocalPoint(origin, new fabric.Point(x, y), 'left', 'bottom');
 
-      if (localPointer.x < 0 && localPointer.y > 0) {
-        // left bottom
+      if (localPointer.x >= endPointer.x) {
+        // right-top | right | right-bottom
+        p = pedalPoint({ x, y }, linearFunction(tl, tr));
+      } else if (localPointer.x <= 0) {
+        // left-bottom | left | left-top
         p = linearsIntersection(linearFunction(BL, TL), linearFunction(tl, tr));
-        const startLocalTl = toLocalPoint(origin, opts.coords.tl);
-        const startLocalTr = toLocalPoint(origin, opts.coords.tr);
-        width = startLocalTr.x;
-        height = toLocalPoint(origin, BL).y - startLocalTl.y;
-      } else if (localPointer.x < 0) {
-        // left
-        p = linearsIntersection(linearFunction(BL, TL), linearFunction(tl, tr));
-        const local = toLocalPoint(origin, pointer);
-        const startLocalTl = toLocalPoint(origin, opts.coords.tl);
-        const startLocalTr = toLocalPoint(origin, opts.coords.tr);
-        width = startLocalTr.x;
-        height = local.y - startLocalTl.y;
-      } else if (localPointer.y > 0) {
-        // bottom
-        p = pedalPoint(pointer, linearFunction(tl, tr));
-        const local = toLocalPoint(origin, pointer);
-        const startLocalTl = toLocalPoint(origin, opts.coords.tl);
-        const startLocalBr = toLocalPoint(origin, opts.coords.br);
-        width = startLocalBr.x - local.x;
-        height = toLocalPoint(origin, BL).y - startLocalTl.y;
       } else {
-        // inner
+        // inner | top | bottom
         p = pedalPoint(pointer, linearFunction(tl, tr));
-        const local = toLocalPoint(origin, pointer);
-        const startLocalTl = toLocalPoint(origin, opts.coords.tl);
-        const startLocalBr = toLocalPoint(origin, opts.coords.br);
-        width = startLocalBr.x - local.x;
-        height = local.y - startLocalTl.y;
       }
 
       left = p.x;
       top = p.y;
+      const local = toLocalPoint(origin, pointer);
+      width = startLocalBr.x - Math.max(local.x, 0);
+      height = Math.min(local.y, origin.getScaledHeight()) - startLocalTl.y;
       break;
     }
   }
 
-  return { left, top, width: Math.max(width), height: Math.max(height), scaleX: 1, scaleY: 1, flipX, flipY };
-}
-
-function wrapScaleEvent(origin: fabric.Object, e: fabric.IEvent, point: { in: Point; outX: Point; outY: Point; outXY: Point }) {
-  const pointer = e.pointer as fabric.Point;
-  const local = getLocalPoint(pointer, origin, e.transform?.corner as string);
-  if (local.x < 0 && local.y < 0) {
-    // out corner
-    return {
-      point: point.outXY,
-      localPoint: toLocalPoint(origin, new fabric.Point(point.outXY.x, point.outXY.y)),
-    };
-  } else if (local.x < 0) {
-    // out left/right border
-    return {
-      point: point.outX,
-      localPoint: toLocalPoint(origin, new fabric.Point(point.outX.x, point.outX.y)),
-    };
-  } else if (local.y < 0) {
-    // out top/bottom border
-    return {
-      point: point.outY,
-      localPoint: toLocalPoint(origin, new fabric.Point(point.outY.x, point.outY.y)),
-    };
-  } else {
-    // inner
-    return {
-      point: point.in,
-      localPoint: toLocalPoint(origin, new fabric.Point(point.in.x, point.in.y)),
-    };
-  }
-}
-
-function getLocalPoint(point: fabric.Point, object: fabric.Object, corner: string) {
-  let p = point;
-  switch (corner) {
-    case 'tl':
-      p = object.toLocalPoint(point, 'left', 'top');
-      break;
-    case 'tr':
-      p = object.toLocalPoint(point, 'right', 'top');
-      p.x *= -1;
-      break;
-    case 'br':
-      p = object.toLocalPoint(point, 'right', 'bottom');
-      p.x *= -1;
-      p.y *= -1;
-      break;
-    case 'bl':
-      p = object.toLocalPoint(point, 'left', 'bottom');
-      p.y *= -1;
-      break;
-  }
-  return p;
+  return { left, top, width: Math.max(width, MIN_WIDTH), height: Math.max(height, MIN_HEIGHT), scaleX: 1, scaleY: 1, flipX, flipY };
 }
 
 /**
@@ -588,14 +463,15 @@ export function setOriginMinScale(target: fabric.Image, origin: fabric.Image, co
   const { tl: TL, tr: TR, br: BR, bl: BL } = origin.aCoords as ACoords;
   const { width = 0, height = 0 } = origin;
   const min = getMinScaleWidthHeight(target, origin, corner);
-  const opts: OriginOptions = {
-    ...((origin as any)._opts as OriginOptions),
+
+  const cOrigin = origin as fabric.Image & OriginOptions;
+  cOrigin._opts = {
+    ...cOrigin._opts,
     minScaleX: Math.abs(min.x) / width,
     minScaleY: Math.abs(min.y) / height,
     diagonal: [linearFunction(TL, BR), linearFunction(TR, BL)],
     radio: width / height,
   };
-  (origin as any)._opts = opts;
 }
 
 function getMinScaleWidthHeight(target: fabric.Object, origin: fabric.Object, corner: string) {
@@ -629,8 +505,7 @@ export function getOriginScaleProperties(target: fabric.Image, origin: fabric.Im
   let scaleX = origin.scaleX || 1;
   let scaleY = origin.scaleY || 1;
 
-  (origin as any)._opts = { lastScaleX: 1, lastScaleY: 1, ...(origin as any)?._opts };
-  const opts = (origin as any)._opts as OriginOptions;
+  const opts = (origin as fabric.Image & OriginOptions)._opts;
   const { tl, tr, br, bl } = target.aCoords as ACoords;
   const { tl: TL, tr: TR, bl: BL } = origin.aCoords as ACoords;
 
@@ -697,40 +572,16 @@ export function getOriginScaleProperties(target: fabric.Image, origin: fabric.Im
   return { scaleX, scaleY };
 }
 
-/**
- * 在缩放过程中，当限制限制住 scaleX/scaleY 时，除 mr、br、mb 外的所有控制点，事件都会移动图像，
- * 因为在此过程中只限制了缩放，但实际这些控制点在缩放时都会造成对象 left/top 的变化，
- * 所以必须进行强制操作，将它们的 left/top 回正。
- * @param target
- * @param origin
- * @param e
- * @param by
- * @returns
- */
-function getOriginScalePosition(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent, by: 'x' | 'y') {
-  const { tl, tr, bl } = target.aCoords as ACoords;
-  const { tl: TL, tr: TR, bl: BL } = origin.aCoords as ACoords;
-
-  switch (e.transform?.corner) {
-    case 'tl':
-      return by === 'x'
-        ? linearsIntersection(linearFunction(bl, tl), linearFunction(TL, TR))
-        : linearsIntersection(linearFunction(tl, tr), linearFunction(BL, TL));
-    case 'tr':
-      return by === 'x'
-        ? linearsIntersection(linearFunction(BL, TL), linearFunction(TL, TR))
-        : linearsIntersection(linearFunction(BL, TL), linearFunction(tl, tr));
-    case 'bl':
-      return by === 'x'
-        ? linearsIntersection(linearFunction(bl, tl), linearFunction(TL, TR))
-        : linearsIntersection(linearFunction(BL, TL), linearFunction(TL, TR));
-  }
-}
-
 function setOriginScalePosition(origin: fabric.Image, corner: string, point: Point) {
   ['tl', 'tr', 'bl'].includes(corner) && origin.setPositionByOrigin(new fabric.Point(point.x, point.y), 'left', 'top');
 }
 
+/**
+ *
+ * @param target cropped image 裁切图像
+ * @param origin original image 原图像
+ * @param e e event 事件对象
+ */
 export function setOriginMoveRectRange(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent) {
   const pointer = e.pointer as fabric.Point;
   const { left = 0, top = 0, angle } = origin;
@@ -748,8 +599,9 @@ export function setOriginMoveRectRange(target: fabric.Image, origin: fabric.Imag
     bottom: linearFunction(BR, BL),
   };
 
-  let opts: OriginOptions = {
-    ...((origin as any)._opts as OriginOptions),
+  const cOrigin = origin as fabric.Image & OriginOptions;
+  cOrigin._opts = {
+    ...cOrigin._opts,
     position: { x: left, y: top },
     pointer,
     moveRegion: new fabric.Rect({
@@ -770,27 +622,34 @@ export function setOriginMoveRectRange(target: fabric.Image, origin: fabric.Imag
       bottom: linearFunction(tl, tr),
     },
   };
-  (origin as any)._opts = opts;
 }
 
-export function getOriginMoveProperty(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent) {
+/**
+ * Limit the movement range of the cut image and obtain its left and top.
+ * 限制裁切图像的移动范围并获取它的的 left 和 top
+ * @param target cropped image 裁切图像
+ * @param origin original image 原图像
+ * @param e event 事件对象
+ * @returns left and top of the cropped image 裁切图像的 left 和 top
+ */
+export function getOriginMovingProperties(target: fabric.Image, origin: fabric.Image, e: fabric.IEvent) {
   const { tl, tr, bl } = target.aCoords as ACoords;
   const pointer = e.pointer as fabric.Point;
-  const opts = (origin as any)._opts as OriginOptions;
-  const local = opts.moveRegion.toLocalPoint(pointer, 'left', 'top');
+  const opts = (origin as fabric.Image & OriginOptions)._opts;
+  const local = toLocalPoint(opts.moveRegion, pointer);
   const { width = 0, height = 0 } = opts.moveRegion;
   let point: { x: number; y: number };
   if (local.x <= 0 && local.y <= 0) {
-    // mouse cross the right bottom border
+    // mouse cross the right-bottom border
     point = linearsIntersection(opts.linears.left, opts.linears.top);
   } else if (local.x <= 0 && local.y >= height) {
-    // mouse cross the right top border
+    // mouse cross the right-top border
     point = linearsIntersection(opts.linears.left, opts.linears.bottom);
   } else if (local.x >= width && local.y <= 0) {
-    // mouse cross the left bottom border
+    // mouse cross the left-bottom border
     point = linearsIntersection(opts.linears.right, opts.linears.top);
   } else if (local.x >= width && local.y >= height) {
-    // mouse cross the left top border
+    // mouse cross the left-top border
     point = linearsIntersection(opts.linears.right, opts.linears.bottom);
   } else if (local.x <= 0) {
     // mouse cross the right border

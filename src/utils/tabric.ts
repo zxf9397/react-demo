@@ -5,15 +5,14 @@ import {
   getTargetCroppedProperties,
   getOriginScaleProperties,
   setOriginMinScale,
-  setControlsActionHandler,
   updateMinions,
   wrapWithModified,
   getTargetScaleProperties,
-  setCroppingControls,
-  setUnCroppingControls,
+  initializeCroppingEvents,
+  initializeUnCroppingEvents,
   setTargetScaleCroods,
   setOriginMoveRectRange,
-  getOriginMoveProperty,
+  getOriginMovingProperties,
 } from './fabricFunc';
 
 type ACoords = Record<'tl' | 'tr' | 'br' | 'bl', Point>;
@@ -27,6 +26,7 @@ export default class Tabric {
       height: 600,
     });
     this._canvas.preserveObjectStacking = true;
+    this._canvas.centeredScaling = true;
     this._initializeCropping();
   }
 
@@ -90,7 +90,7 @@ export default class Tabric {
       if (!this.croppingTarget || !this.croppingOrigin || !this.mouseDown) {
         return;
       }
-      this.croppingOrigin.set(getOriginMoveProperty(this.croppingTarget, this.croppingOrigin, e)).setCoords();
+      this.croppingOrigin.set(getOriginMovingProperties(this.croppingTarget, this.croppingOrigin, e)).setCoords();
       this.croppingTarget.set(getTargetCroppedProperties(this.croppingTarget, this.croppingOrigin)).setCoords();
       this._canvas.renderAll();
     });
@@ -115,11 +115,10 @@ export default class Tabric {
     this.croppingTarget = activeObj as fabric.Image;
     this.croppingOriginBackup = (activeObj as any).croppingOrigin;
 
-    setCroppingControls(this.croppingTarget, this.croppingOrigin);
+    initializeCroppingEvents(this.croppingTarget, this.croppingOrigin);
 
-    if (!(this.croppingTarget as any).croppingOrigin) {
-      setControlsActionHandler(this.croppingTarget);
-
+    if (!(this.croppingTarget as any).bound) {
+      (this.croppingTarget as any).bound = true;
       // bind cropping target
       this.croppingTarget.on('mousedown', (e: fabric.IEvent) => {
         if (!this.croppingTarget || !this.croppingOrigin) {
@@ -179,7 +178,7 @@ export default class Tabric {
       return;
     }
     (this.croppingTarget as any).croppingOrigin = this.croppingOriginBackup;
-    setUnCroppingControls(this.croppingTarget);
+    initializeUnCroppingEvents(this.croppingTarget);
     this._canvas.remove(this.croppingOrigin, this.croppingTarget).add(this.croppingTargetBackup);
     this.croppingTargetBackup.moveTo(this.croppingIndex);
     this._canvas.setActiveObject(this.croppingTargetBackup);
@@ -198,7 +197,7 @@ export default class Tabric {
     this._canvas.setActiveObject(this.croppingTarget);
     this.croppingTarget.moveTo(this.croppingIndex);
     this._canvas.remove(this.croppingOrigin);
-    setUnCroppingControls(this.croppingTarget);
+    initializeUnCroppingEvents(this.croppingTarget);
     bindFollow(this.croppingTarget);
     // clear
     this.croppingTarget = null;
