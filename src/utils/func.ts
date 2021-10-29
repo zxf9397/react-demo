@@ -95,36 +95,6 @@ export function linearFunction(pointA: Point, pointB: Point): LinearFunction {
   }
 }
 
-export function linearFunctionMove(linear: LinearFunction, offset: number) {
-  const k = linear.k;
-  if (k === 0) {
-    const y = linear.func(0) + offset;
-    return {
-      k,
-      b: y,
-      reverseFunc: linear.reverseFunc,
-      func: () => y,
-    };
-  } else if (!Number.isFinite(k)) {
-    const x = linear.reverseFunc(0) + offset;
-    const b = linear.b;
-    return {
-      k,
-      b,
-      reverseFunc: () => x,
-      func: linear.func,
-    };
-  } else {
-    const b = linear.b + offset;
-    return {
-      k,
-      b,
-      reverseFunc: (y: number) => (y - b) / k,
-      func: (x: number) => k * x + b,
-    };
-  }
-}
-
 /**
  * 获取点关于直线的对称点
  * @param point
@@ -176,4 +146,15 @@ export function perpendicularLinear(point: Point, linear: LinearFunction) {
   const x = (point.x + linear.k * point.y - linear.k * linear.b) / (linear.k * linear.k + 1);
   const y = (linear.k * linear.k * point.y + linear.k * point.x + linear.b) / (linear.k * linear.k + 1);
   return linearFunction(point, { x, y });
+}
+
+/**
+ * 已知 start 点对应 end 点， 求 point 点的对应点
+ * @param point point
+ * @param start start point
+ * @param end end point
+ * @returns corresponding  point
+ */
+export function getCorrespondingPoint(point: Point, start: Point, end: Point): Point {
+  return { x: point.x - start.x + end.x, y: point.y - start.y + end.y };
 }
