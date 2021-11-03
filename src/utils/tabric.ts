@@ -3,15 +3,15 @@ import { linearFunction, Point } from './func';
 import {
   bindFollow,
   getTargetCroppedProperties,
-  getOriginScaleProperties,
-  setOriginMinScale,
+  getOriginScalingProperties,
+  initializeBeforeOriginScaling,
   updateMinions,
   wrapWithModified,
-  getTargetScaleProperties,
+  getTargetScalingProperties,
   initializeCroppingEvents,
   initializeUnCroppingEvents,
-  setTargetScaleCroods,
-  setOriginMoveRectRange,
+  initializeBeforeTargetScaling,
+  initializeBeforeOriginMoving,
   getOriginMovingProperties,
 } from './fabricFunc';
 
@@ -60,7 +60,7 @@ export default class Tabric {
         return;
       }
       if (!e.transform?.corner) {
-        setOriginMoveRectRange(this.croppingTarget, this.croppingOrigin, e);
+        initializeBeforeOriginMoving(this.croppingTarget, this.croppingOrigin, e);
         this.mouseDown = true;
       }
       if (e.target === this.croppingTarget || e.target === this.croppingOrigin) {
@@ -125,14 +125,14 @@ export default class Tabric {
           return;
         }
         if (e.transform?.corner) {
-          setTargetScaleCroods(this.croppingTarget);
+          initializeBeforeTargetScaling(this.croppingTarget);
         }
       });
       this.croppingTarget.on('scaling', (e) => {
         if (!this.croppingTarget || !this.croppingOrigin) {
           return;
         }
-        const opts = getTargetScaleProperties(this.croppingTarget, this.croppingOrigin, e);
+        const opts = getTargetScalingProperties(this.croppingTarget, this.croppingOrigin, e);
         this.croppingTarget.set(opts).setCoords();
         calculateCrop();
       });
@@ -152,7 +152,7 @@ export default class Tabric {
         }
         // scaling
         if (e.transform?.corner) {
-          setOriginMinScale(this.croppingTarget, this.croppingOrigin, e.transform.corner);
+          initializeBeforeOriginScaling(this.croppingTarget, this.croppingOrigin, e.transform.corner);
           return;
         }
       });
@@ -161,7 +161,7 @@ export default class Tabric {
           return;
         }
         if (e.transform?.corner) {
-          const opts = getOriginScaleProperties(this.croppingTarget, this.croppingOrigin, e.transform?.corner);
+          const opts = getOriginScalingProperties(this.croppingTarget, this.croppingOrigin, e.transform?.corner);
           this.croppingOrigin.set(opts).setCoords();
           calculateCrop();
         }

@@ -162,3 +162,7 @@ export function getCorrespondingPoint(point: Point, start: Point, end: Point): P
 export function angleToRadian(angle: number) {
   return (angle * Math.PI) / 180;
 }
+
+export function toLocalPoint(target: fabric.Object, point: fabric.Point, originX: 'left' | 'right' = 'left', originY: 'top' | 'bottom' = 'top') {
+  return target.toLocalPoint(point, originX, originY);
+}
