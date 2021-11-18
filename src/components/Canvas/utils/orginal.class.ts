@@ -33,7 +33,7 @@ export default class OriginalEventsEnv {
     this.canvas.on('mouse:up', this.afterMoving);
   }
 
-  destroy = () => {
+  unbound = () => {
     this.canvas.off('mouse:down', this.beforeMove);
     this.canvas.off('mouse:move', this.moving);
     this.canvas.off('mouse:up', this.afterMoving);

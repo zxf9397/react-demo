@@ -34,18 +34,13 @@ interface Origin {
 }
 export type CroppedImage = fabric.Image & Cropped;
 export type OriginalImage = fabric.Image & Origin;
-interface CropEnvironmentOptions {
-  minWidth?: number;
-  minHeight?: number;
-  // 折线长度
-  cornerLength?: number;
-  // 折线宽度
-  cornerWidth?: number;
+export interface CropEnvironmentOptions {
+  minWidth?: number; // 最小裁切宽度
+  minHeight?: number; // 最小裁切高度
+  cornerWidth?: number; // 折线宽度
+  cornerLength?: number; // 折线长度
+  originalImageOpacity?: number; // 原图透明度
 }
-
-const ORIGINAL_IMAGE_OPACITY = 0.8;
-const MIN_WIDTH = 50;
-const MIN_HEIGHT = 50;
 const defaultControls = (({ tl, tr, br, bl }) => ({ tl, tr, br, bl }))(fabric.Image.prototype.controls);
 const controlsHidden: { [key in Controls]?: boolean } = { mtr: false, ml: false, mt: false, mr: false, mb: false };
 const eventLock: { [key in ControlsEvents]?: boolean } = {
@@ -54,6 +49,13 @@ const eventLock: { [key in ControlsEvents]?: boolean } = {
   lockSkewingX: true,
   lockSkewingY: true,
   centeredScaling: false,
+};
+const DEFAULT_CROP_ENV_OPTS: Required<CropEnvironmentOptions> = {
+  minWidth: 0,
+  minHeight: 0,
+  cornerWidth: 4,
+  cornerLength: 10,
+  originalImageOpacity: 0.8,
 };
 
 function wrapWithModified(handler: (target: fabric.Object, origin: fabric.Object) => void) {
@@ -80,12 +82,10 @@ export default class CropEnvironment {
   private croppedEventsEnv: CroppedEventsEnv;
   private originalEventEnv: OriginalEventsEnv;
   private preserveObjectStacking: boolean | undefined;
-  private cornerWidth = 4;
-  private cornerLength = 10;
+  private options: Required<CropEnvironmentOptions> = DEFAULT_CROP_ENV_OPTS;
 
-  constructor(private canvas: fabric.Canvas, private options?: CropEnvironmentOptions) {
-    this.cornerWidth = options?.cornerWidth || this.cornerWidth;
-    this.cornerLength = options?.cornerLength || this.cornerLength;
+  constructor(private canvas: fabric.Canvas, options?: CropEnvironmentOptions) {
+    this.options = { ...DEFAULT_CROP_ENV_OPTS, ...options };
     this.croppedEventsEnv = new CroppedEventsEnv(this, canvas, { minWidth: options?.minWidth, minHeight: options?.minHeight });
     this.originalEventEnv = new OriginalEventsEnv(this, canvas);
     this.preserveObjectStacking = canvas.preserveObjectStacking;
@@ -125,21 +125,21 @@ export default class CropEnvironment {
     });
   }
 
-  destroy() {
+  unbound() {
     this.canvas.off('mouse:down', this.mouseDown);
     this.canvas.off('mouse:dblclick', this.dblclick);
     this.canvas.off('after:render', this.afterRender);
     ['object:modified', 'object:rotating', 'object:scaling', 'object:fliped', 'selection:cleared'].forEach((event) => {
       this.canvas.off(event, this._updateMinions);
     });
-    this.croppedEventsEnv.destroy();
-    this.originalEventEnv.destroy();
+    this.croppedEventsEnv.unbound();
+    this.originalEventEnv.unbound();
   }
 
   private drawLine = (ctx: CanvasRenderingContext2D, x: number, y: number, fabricObject: fabric.Object) => {
     let points: number[] = [];
-    const lineWidth = Math.min(fabricObject.getScaledWidth(), this.cornerLength);
-    const lineHeight = Math.min(fabricObject.getScaledHeight(), this.cornerLength);
+    const lineWidth = Math.min(fabricObject.getScaledWidth(), this.options.cornerLength);
+    const lineHeight = Math.min(fabricObject.getScaledHeight(), this.options.cornerLength);
     if (x < 0 && y < 0) {
       points = [lineWidth, 0, 0, 0, 0, lineHeight];
     } else if (x > 0 && y < 0) {
@@ -154,7 +154,7 @@ export default class CropEnvironment {
     ctx.moveTo(points[0], points[1]);
     ctx.lineTo(points[2], points[3]);
     ctx.lineTo(points[4], points[5]);
-    ctx.lineWidth = this.cornerWidth;
+    ctx.lineWidth = this.options.cornerWidth;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.stroke();
@@ -197,8 +197,8 @@ export default class CropEnvironment {
       cropped.controls[name] = new fabric.Control({
         ...ctl,
         render: this.renderIcon,
-        sizeX: this.cornerLength * 1.5,
-        sizeY: this.cornerLength * 1.5,
+        sizeX: this.options.cornerLength * 1.5,
+        sizeY: this.options.cornerLength * 1.5,
       });
     });
     // 设置原对象的属性
@@ -206,7 +206,7 @@ export default class CropEnvironment {
       ...eventLock,
       lockScalingFlip: true,
       centeredScaling: false,
-      opacity: ORIGINAL_IMAGE_OPACITY,
+      opacity: this.options.originalImageOpacity,
     });
     // 设置裁切对象的属性
     cropped.setControlsVisibility(controlsHidden).set(eventLock);
@@ -221,25 +221,19 @@ export default class CropEnvironment {
       cropped.bound = true;
       // bind cropping target
       cropped.on('mousedown', (e: fabric.IEvent) => {
-        if (!this.cropped || !this.original) {
-          return;
-        }
+        if (!this.cropped || !this.original) return;
         if (e.transform?.corner) {
           this.croppedEventsEnv.initializeBeforeTargetScaling(this.cropped);
         }
       });
       cropped.on('scaling', (e) => {
-        if (!this.cropped || !this.original) {
-          return;
-        }
+        if (!this.cropped || !this.original) return;
         const opts = this.croppedEventsEnv.getTargetScalingProperties(this.cropped, this.original, e);
         this.cropped.set(opts).setCoords();
         calculateCrop();
       });
       const calculateCrop = () => {
-        if (!this.cropped || !this.original) {
-          return;
-        }
+        if (!this.cropped || !this.original) return;
         const opts = this.croppedEventsEnv.getTargetCroppedProperties(this.cropped, this.original);
         this.cropped.set(opts).setCoords();
       };
@@ -247,9 +241,7 @@ export default class CropEnvironment {
 
       // bind cropping origin
       original.on('mousedown', (e: fabric.IEvent) => {
-        if (!this.cropped || !this.original) {
-          return;
-        }
+        if (!this.cropped || !this.original) return;
         // scaling
         if (e.transform?.corner) {
           this.originalEventEnv.initializeBeforeOriginScaling(this.cropped, this.original, e.transform.corner);
@@ -257,9 +249,7 @@ export default class CropEnvironment {
         }
       });
       original.on('scaling', (e) => {
-        if (!this.cropped || !this.original) {
-          return;
-        }
+        if (!this.cropped || !this.original) return;
         if (e.transform?.corner) {
           const opts = this.originalEventEnv.getOriginScalingProperties(this.cropped, this.original, e.transform?.corner);
           this.original.set(opts).setCoords();
@@ -283,8 +273,8 @@ export default class CropEnvironment {
     // 设置裁切对象的最小缩放
     const scaledWidth = cTarget.getScaledWidth();
     const scaledHeight = cTarget.getScaledHeight();
-    const minScaleX = MIN_WIDTH / scaledWidth;
-    const minScaleY = MIN_HEIGHT / scaledHeight;
+    const minScaleX = this.options.minWidth / scaledWidth;
+    const minScaleY = this.options.minHeight / scaledHeight;
     cTarget.set('minScaleLimit', Math.max(minScaleX * (cTarget.scaleX || 1), minScaleY * (cTarget.scaleY || 1)));
     // 退出裁切状态
     cTarget.cropping = false;
@@ -294,14 +284,14 @@ export default class CropEnvironment {
 
   enterCropping = () => {
     if (this.cropped) return;
-    const active = this.canvas.getActiveObject();
+    const active = this.canvas.getActiveObject() as CroppedImage;
     if (active.type !== 'image') return;
 
     this.index = this.canvas.getObjects().findIndex((klass) => klass === active);
-    this.original = fabric.util.object.clone((active as CroppedImage).originalImage || active) as OriginalImage;
+    this.original = fabric.util.object.clone(active.originalImage || active) as OriginalImage;
     this.croppedBackup = fabric.util.object.clone(active);
-    this.cropped = active as CroppedImage;
-    this.originalBackup = (active as CroppedImage).originalImage;
+    this.cropped = active;
+    this.originalBackup = active.originalImage;
 
     this.initializeCroppingEvents(this.cropped, this.original);
 

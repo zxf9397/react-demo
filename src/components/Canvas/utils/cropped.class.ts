@@ -28,7 +28,7 @@ export default class CroppedEventsEnv {
     this.canvas.on('mouse:move', this.cropping);
   }
 
-  destroy = () => {
+  unbound = () => {
     this.canvas.off('mouse:move', this.cropping);
   };
 
