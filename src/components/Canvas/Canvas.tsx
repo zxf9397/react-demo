@@ -3,12 +3,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import './Canvas.scss';
 import DesignTool, { Design, InterfacePayload } from './utils/design.class';
 
-const imageUrl = 'https://clkj-dev.oss-cn-qingdao.aliyuncs.com/images/material/short/472-04c45fe3eb8243033b49518c55f87824.jpg?x-oss-process=image';
+const imageUrl = 'https://clkj-dev.oss-cn-qingdao.aliyuncs.com/images/material/short/118-fcc7e1e5-6b61-42ae-b396-9ac908e237c4.png';
 const options = {
-  width: 400,
-  height: 400,
+  width: 1200,
+  height: 1200,
   left: 400,
   top: 100,
+  scaleX: 0.32,
+  scaleY: 0.32,
 };
 
 interface CanvasCardProps {
@@ -95,11 +97,13 @@ export default function Canvas() {
         <canvas id="canvas" width="1200" height="600"></canvas>
       </div>
       <div className="coo-canvas__buttons">
-        {/* <button onClick={() => addImage(imageUrl, options)}>添加图片</button>
+        <button onClick={() => addImage(imageUrl, options)}>添加图片</button>
         <button onClick={designer?.cropEnv.enterCropping}>开始裁切</button>
         <button onClick={designer?.cropEnv.cancelCropping}>取消裁切</button>
-        <button onClick={designer?.cropEnv.confirmCropping}>确认裁切</button> */}
+        <button onClick={designer?.cropEnv.confirmCropping}>确认裁切</button>
         <button onClick={designer?.addPath}>addPath</button>
+        <button onClick={() => designer?.addIText()}>addIText</button>
+        <button onClick={designer?.addFilter}>addFilter</button>
       </div>
       <div className="coo-canvas__cards">
         {designs.map((design, i) => (

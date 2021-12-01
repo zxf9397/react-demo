@@ -1,5 +1,6 @@
 import { fabric } from 'fabric';
 import CropEnvironment from './crop.class';
+import './filter.js';
 
 export interface InterfacePayload {
   width: number;
@@ -30,6 +31,7 @@ export default class DesignTool {
 
   constructor(el: string | HTMLCanvasElement, { update }: DesignToolOptions) {
     this.canvas = new fabric.Canvas(el);
+    this.canvas.preserveObjectStacking = true;
     this.cropEnv = new CropEnvironment(this.canvas);
     this.updateLayerDesigns = (designs) => {
       this.layerDesigns = designs;
@@ -46,8 +48,13 @@ export default class DesignTool {
           image.set(options);
           this.canvas.discardActiveObject();
           this.canvas.setActiveObject(image);
-          this.canvas.add(image).renderAll();
           this.updateLayerDesigns([...this.layerDesigns, image as unknown as Design]);
+          image.filters?.push(new (fabric.Image.filters as any)['embroidery']());
+          image.applyFilters();
+          image.on('modified', () => {
+            image.applyFilters();
+          });
+          this.canvas.add(image).renderAll();
           resolve(image as unknown as Design);
         },
         {
@@ -55,6 +62,20 @@ export default class DesignTool {
         }
       );
     });
+  };
+
+  addIText = (text = 'test') => {
+    const itext = new fabric.IText(text);
+    this.canvas.add(itext);
+    this.canvas.renderAll();
+  };
+
+  addFilter = () => {
+    const active = this.canvas.getActiveObject();
+    if (!active) return;
+    ((active as any).filters = (active as any).filters || []).push(new fabric.Image.filters.BlendColor({ mode: 'add', color: '#00f', alpha: 0.8 }));
+    (active as any).applyFilters();
+    this.canvas.renderAll();
   };
 
   swicthLayer = (laryer: number) => {
@@ -144,10 +165,14 @@ export default class DesignTool {
   private bind() {
     this.canvas.on('object:scaling', this.datachange);
     this.canvas.on('object:rotating', this.datachange);
+    // this.canvas.on('object:modified', this.filterEnv.applyFilters);
+    // this.canvas.on('object:moving', this.filterEnv.applyFilters);
   }
 
   unbind() {
     this.canvas.off('object:scaling', this.datachange);
     this.canvas.off('object:rotating', this.datachange);
+    // this.canvas.off('object:modified', this.filterEnv.applyFilters);
+    // this.canvas.off('object:moving', this.filterEnv.applyFilters);
   }
 }
