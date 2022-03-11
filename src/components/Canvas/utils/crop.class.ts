@@ -1,8 +1,7 @@
-import { Point } from '../../../utils/func';
-import { LinearFunction } from '../../../utils/func';
 import { fabric } from 'fabric';
 import OriginalEventsEnv from './orginal.class';
 import CroppedEventsEnv from './cropped.class';
+import { LinearFunction, Point } from './math';
 
 export type ACoords = Record<'tl' | 'tr' | 'br' | 'bl', fabric.Point>;
 type Controls = 'bl' | 'br' | 'mb' | 'ml' | 'mr' | 'mt' | 'tl' | 'tr' | 'mtr';

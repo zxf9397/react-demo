@@ -95,10 +95,10 @@ export default function Canvas() {
         <canvas id="canvas" width="1200" height="600"></canvas>
       </div>
       <div className="coo-canvas__buttons">
-        {/* <button onClick={() => addImage(imageUrl, options)}>添加图片</button>
+        <button onClick={() => addImage(imageUrl, options)}>添加图片</button>
         <button onClick={designer?.cropEnv.enterCropping}>开始裁切</button>
         <button onClick={designer?.cropEnv.cancelCropping}>取消裁切</button>
-        <button onClick={designer?.cropEnv.confirmCropping}>确认裁切</button> */}
+        <button onClick={designer?.cropEnv.confirmCropping}>确认裁切</button>
         <button onClick={designer?.addPath}>addPath</button>
       </div>
       <div className="coo-canvas__cards">
